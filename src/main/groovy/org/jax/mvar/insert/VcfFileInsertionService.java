@@ -38,7 +38,6 @@ public class VcfFileInsertionService {
         if (batchNumber != -1) {
             batchSize = batchNumber;
             logger.info("Batch size is " + batchSize);
-            System.out.println("Batch size is " + batchSize);
         }
         loadVCF(vcfFile);
     }
@@ -59,7 +58,6 @@ public class VcfFileInsertionService {
             return;
         }
         logger.info("vcf File: " + vcfFileName);
-        System.out.println("vcf File: " + vcfFileName);
         try {
             // get Properties
             Config config = new Config();
@@ -72,7 +70,6 @@ public class VcfFileInsertionService {
         } catch (Exception e) {
             e.printStackTrace();
             logger.severe("An exception was caught: " + e.getMessage());
-            System.out.println("An exception was caught: " + e.getMessage());
             closeConnection();
         } finally {
             closeConnection();
@@ -81,9 +78,7 @@ public class VcfFileInsertionService {
         saveNewTranscriptsToFile();
 
         logger.info("vcf File: " + vcfFileName);
-        System.out.println("vcf File: " + vcfFileName);
         logger.info("Vcf file complete parsing and persistance: " + stopWatch + " time: " + new Date());
-        System.out.println("Vcf file complete parsing and persistance: " + stopWatch + " time: " + new Date());
     }
 
     private void closeConnection() {
@@ -91,7 +86,6 @@ public class VcfFileInsertionService {
             try {
                 connection.close();
                 logger.info("JDBC Connection closed");
-                System.out.println("JDBC Connection closed");
             } catch (SQLException exc) {
                 exc.printStackTrace();
             }
@@ -144,7 +138,6 @@ public class VcfFileInsertionService {
 
 //        for (String type : varTypes) {
 //            logger.info("Variant type = " + type);
-//            System.out.println("Variant type = " + type);
         for (String chr : mouseChromosomes) {
             final StopWatch stopWatch = new StopWatch();
             stopWatch.start();
@@ -153,14 +146,12 @@ public class VcfFileInsertionService {
 //                List<gngs.Variant> vcfVariants = parser.parseVcf(chr, vcfFile, type, logger);
 
             logger.info("CHR = " + chr + ", variant size= " + vcfVariants.size());
-            System.out.println("CHR = " + chr + ", variant size= " + vcfVariants.size());
 
             //insert canonicals
             insertCanonVariantsBatch(vcfVariants);
             //insert variants, transcript, hgvs and relationships, and collect new transcripts not in DB
             insertVariantsBatch(vcfVariants, strainName);
             logger.info("Chr= " + chr + " : persistance load = " + stopWatch + " time: " + new Date());
-            System.out.println("Chr= " + chr + " : persistance load = " + stopWatch + " time: " + new Date());
             stopWatch.reset();
             stopWatch.start();
         }
@@ -283,7 +274,6 @@ public class VcfFileInsertionService {
 
             if (found.containsKey(parentRefVariant)) {
                 logger.info(idx2 + " Existing record ID = " + parentRefVariant);
-                System.out.println(idx2 + " Existing record ID = " + parentRefVariant);
             } else {
                 // chromosome
                 insertCanonVariants.setString(1, chromosome);
@@ -678,7 +668,6 @@ public class VcfFileInsertionService {
             }
         } catch (IOException e) {
             e.printStackTrace();
-            System.out.println("Error writing new transcripts to file: " + e.getMessage());
             logger.severe("Error writing new transcripts to file: " + e.getMessage());
         }finally{
             try {
@@ -688,7 +677,6 @@ public class VcfFileInsertionService {
                 e.printStackTrace();
             }
         }
-        System.out.println("New transcripts written to file:" + file.getName());
         logger.info("New transcripts written to file:" + file.getName());
     }
 
