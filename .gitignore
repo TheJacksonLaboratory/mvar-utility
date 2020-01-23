@@ -216,4 +216,10 @@ gradle-app.setting
 ### Gradle Patch ###
 **/build/
 
+# others
+*.dmp
+*.phd
+*.txt
+*.trc
+
 # End of https://www.gitignore.io/api/java,gradle,maven,eclipse,intellij
