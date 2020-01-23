@@ -5,7 +5,10 @@ import parser.AnnotationParser;
 import parser.InfoParser;
 import parser.VcfParser;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.*;
 import java.util.*;
 import java.util.Date;
@@ -16,7 +19,7 @@ public class VcfFileInsertionService {
 
     private Connection connection;
     private Map<String, String[]> newTranscriptsMap;
-    private static final String ENSEMBL_URL = "http://rest.ensembl.org/";
+//    private static final String ENSEMBL_URL = "http://rest.ensembl.org/";
     private static int batchSize = 1000;
     private String assembly;
     private InfoParser infoParser = new AnnotationParser();
@@ -29,7 +32,7 @@ public class VcfFileInsertionService {
             FileHandler handler = new FileHandler("output.log", true);
             logger.addHandler(handler);
         } catch (Exception e) {
-
+            e.printStackTrace();
         }
 
         if (batchNumber != -1) {
@@ -74,6 +77,9 @@ public class VcfFileInsertionService {
         } finally {
             closeConnection();
         }
+        // save new transcripts to file
+        saveNewTranscriptsToFile();
+
         logger.info("vcf File: " + vcfFileName);
         System.out.println("vcf File: " + vcfFileName);
         logger.info("Vcf file complete parsing and persistance: " + stopWatch + " time: " + new Date());
@@ -121,14 +127,14 @@ public class VcfFileInsertionService {
      * - external ids
      * 5. construct search doc -- TODO: possible search docs for speed querying of data in site
      *
-     * @param vcfFile file
+     * @param vcfFile    file
      * @param strainName name of the strain
      */
     private void persistData(File vcfFile, String strainName) throws Exception {
         //persist data by chromosome -- TODO: check potential for multi-threaded process
         //TODO: add mouse chr to config
         List<String> mouseChromosomes = Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "X", "Y", "MT");
-        List<String> varTypes = Arrays.asList("SNP", "DEL", "INS");
+//        List<String> varTypes = Arrays.asList("SNP", "DEL", "INS");
         // Map used to collect non-existing transcripts in DB
         // key : transcript id
         // value : list of 3 strings with 0 = gene id, 1 = variant id, 2 = most pathogenic
@@ -139,28 +145,28 @@ public class VcfFileInsertionService {
 //        for (String type : varTypes) {
 //            logger.info("Variant type = " + type);
 //            System.out.println("Variant type = " + type);
-            for (String chr : mouseChromosomes) {
-                final StopWatch stopWatch = new StopWatch();
-                stopWatch.start();
+        for (String chr : mouseChromosomes) {
+            final StopWatch stopWatch = new StopWatch();
+            stopWatch.start();
 
-                List<gngs.Variant> vcfVariants = parser.parseVcf(chr, vcfFile, logger);
+            List<gngs.Variant> vcfVariants = parser.parseVcf(chr, vcfFile, logger);
 //                List<gngs.Variant> vcfVariants = parser.parseVcf(chr, vcfFile, type, logger);
 
-                logger.info("CHR = " + chr + ", variant size= " + vcfVariants.size());
-                System.out.println("CHR = " + chr + ", variant size= " + vcfVariants.size());
+            logger.info("CHR = " + chr + ", variant size= " + vcfVariants.size());
+            System.out.println("CHR = " + chr + ", variant size= " + vcfVariants.size());
 
-                //insert canonicals
-                insertCanonVariantsBatch(vcfVariants);
-                //insert variants, transcript, hgvs and relationships, and collect new transcripts not in DB
-                insertVariantsBatch(vcfVariants, strainName);
-                logger.info("Chr= " + chr + " : persistance load = " + stopWatch + " time: " + new Date());
-                System.out.println("Chr= " + chr + " : persistance load = " + stopWatch + " time: " + new Date());
-                stopWatch.reset();
-                stopWatch.start();
-            }
+            //insert canonicals
+            insertCanonVariantsBatch(vcfVariants);
+            //insert variants, transcript, hgvs and relationships, and collect new transcripts not in DB
+            insertVariantsBatch(vcfVariants, strainName);
+            logger.info("Chr= " + chr + " : persistance load = " + stopWatch + " time: " + new Date());
+            System.out.println("Chr= " + chr + " : persistance load = " + stopWatch + " time: " + new Date());
+            stopWatch.reset();
+            stopWatch.start();
+        }
 
 //        }
-        // add new Transcripts to DB
+        // add new Transcripts to DB (we write to file for now...)
 //        loadNewTranscripts((Map<String, List<String>>) newTranscriptsMap);
 
         innoDBSetOptions(true);
@@ -194,21 +200,29 @@ public class VcfFileInsertionService {
 
         List<gngs.Variant> batchOfVars = new ArrayList<>();
         List<String> batchOfParentVariantRef = new ArrayList<>();
+        // used to search quickly if values has already been inserted and exists in the batch
+        Set<String> batchOfUniqueVar = new HashSet<>();
 
         int idx = 0;
         for (gngs.Variant var : varList) {
-            batchOfVars.add(var);
-
             String position = var.getInfo().get("OriginalStart") != null ? (String) var.getInfo().get("OriginalStart") : String.valueOf(var.getPos());
             String chromosome = var.getChr().replace("ch", "").replace("r", "");
+            String parentVariantRef = chromosome.concat("_").concat(position).concat("_").concat(var.getRef()).concat("_").concat(var.getAlt());
 
-            batchOfParentVariantRef.add(chromosome.concat("_").concat(position).concat("_").concat(var.getRef()).concat("_").concat(var.getAlt()));
+            // we add the variant to the batch only if it not already there
+            // to avoid having duplicates inside one batch which hasn't been yet committed to the DB
+            if (!batchOfUniqueVar.contains(parentVariantRef)) {
+                batchOfVars.add(var);
+                batchOfParentVariantRef.add(parentVariantRef);
+            }
+            batchOfUniqueVar.add(parentVariantRef);
+
             if (idx > 1 && idx % batchSize == 0) {
                 batchInsertCannonVariantsJDBC(batchOfVars, batchOfParentVariantRef);
                 //clear batch lists
                 batchOfVars.clear();
                 batchOfParentVariantRef.clear();
-
+                batchOfUniqueVar.clear();
             }
             idx++;
         }
@@ -218,6 +232,7 @@ public class VcfFileInsertionService {
             batchInsertCannonVariantsJDBC(batchOfVars, batchOfParentVariantRef);
             batchOfVars.clear();
             batchOfParentVariantRef.clear();
+            batchOfUniqueVar.clear();
         }
 
         // update canonical id
@@ -294,7 +309,6 @@ public class VcfFileInsertionService {
      */
     private void insertVariantsBatch(List<gngs.Variant> varList, final String strainName) throws Exception {
         List<gngs.Variant> batchOfVars = new ArrayList<>();
-        List<String> batchOfParentVariantRefTxt = new ArrayList<>();
         List<String> batchOfVariantRefTxt = new ArrayList<>();
         List<String> batchOfGenes = new ArrayList<>();
         List<String> batchOfTranscripts = new ArrayList<>();
@@ -309,22 +323,21 @@ public class VcfFileInsertionService {
             // TODO Take into account the lift over from mm9 to mm10 when inserting original mm9 data
             String position = var.getInfo().get("OriginalStart") != null ? (String) var.getInfo().get("OriginalStart") : String.valueOf(var.getPos());
             String chromosome = var.getChr().replace("ch", "").replace("r", "");
-            String parentRefVariant = chromosome.concat("_").concat(position).concat("_").concat(var.getRef()).concat("_").concat(var.getAlt());
+            String variantRefTxt = chromosome.concat("_").concat(position).concat("_").concat(var.getRef()).concat("_").concat(var.getAlt());
 
-            batchOfParentVariantRefTxt.add(parentRefVariant);
+//            batchOfParentVariantRefTxt.add(parentRefVariant);
 //            String variantRefTxt = parentRefVariant;
-            batchOfVariantRefTxt.add(parentRefVariant);
+            batchOfVariantRefTxt.add(variantRefTxt);
 
             // get jannovar info
-            annotationParsed = infoParser.parse("ANN=".concat((String)var.getInfo().get("ANN")));
+            annotationParsed = infoParser.parse("ANN=".concat((String) var.getInfo().get("ANN")));
             batchOfGenes.add(annotationParsed.get(0).get("Gene_Name"));
             batchOfTranscripts.add(annotationParsed.get(0).get("Feature_ID").split("\\.")[0]);
 
             if (idx > 1 && idx % batchSize == 0) {
-                batchInsertVariantsJDBC(batchOfVars, batchOfVariantRefTxt, batchOfParentVariantRefTxt, batchOfGenes, batchOfTranscripts, strainName);
+                batchInsertVariantsJDBC(batchOfVars, batchOfVariantRefTxt, batchOfGenes, batchOfTranscripts, strainName);
                 //clear batch lists
                 batchOfVars.clear();
-                batchOfParentVariantRefTxt.clear();
                 batchOfVariantRefTxt.clear();
                 batchOfGenes.clear();
                 batchOfTranscripts.clear();
@@ -334,9 +347,8 @@ public class VcfFileInsertionService {
 
         //last batch
         if (batchOfVars.size() > 0) {
-            batchInsertVariantsJDBC(batchOfVars, batchOfVariantRefTxt, batchOfParentVariantRefTxt, batchOfGenes, batchOfTranscripts, strainName);
+            batchInsertVariantsJDBC(batchOfVars, batchOfVariantRefTxt, batchOfGenes, batchOfTranscripts, strainName);
             batchOfVars.clear();
-            batchOfParentVariantRefTxt.clear();
             batchOfVariantRefTxt.clear();
             batchOfGenes.clear();
             batchOfTranscripts.clear();
@@ -352,19 +364,18 @@ public class VcfFileInsertionService {
      *
      * @param batchOfVars
      * @param batchOfVariantRefTxt
-     * @param batchOfParentVariantRefTxt
      * @param batchOfGenes
      * @param batchOfTranscripts
      * @param strainName
      */
-    private void batchInsertVariantsJDBC(List<gngs.Variant> batchOfVars, List<String> batchOfVariantRefTxt, List<String> batchOfParentVariantRefTxt, List<String> batchOfGenes, List<String> batchOfTranscripts, String strainName) throws Exception {
+    private void batchInsertVariantsJDBC(List<gngs.Variant> batchOfVars, List<String> batchOfVariantRefTxt, List<String> batchOfGenes, List<String> batchOfTranscripts, String strainName) throws Exception {
         // set autocommit on for the selects stmt
         connection.setAutoCommit(true);
-        Map<String, Long> found = selectAllFromColumnInList("variant", "variant_ref_txt", batchOfVariantRefTxt);
+//        Map<String, Long> found = selectAllFromColumnInList("variant", "variant_ref_txt", batchOfVariantRefTxt);
 
         // records of all unique canon ids
 //        List<VariantCanonIdentifier> cannonRecs = ((Class<VariantCanonIdentifier>) org.jax.mvarcore.VariantCanonIdentifier).findAllByVariantRefTxtInList(batchOfParentVariantRefTxt);
-        Map<String, Long> cannonRecs = selectAllFromColumnInList("variant_canon_identifier", "variant_ref_txt", batchOfParentVariantRefTxt);
+        Map<String, Long> cannonRecs = selectAllFromColumnInList("variant_canon_identifier", "variant_ref_txt", batchOfVariantRefTxt);
 
         // records of all unique gene symbols
 //        List<Gene> geneSymbolRecs = ((Class<Gene>) org.jax.mvarcore.Gene).findAllBySymbolInList(batchOfGenes);
@@ -386,84 +397,77 @@ public class VcfFileInsertionService {
         List<Map<String, String>> annotationParsed;
         Long canonIdentifierId;
 
-        int idx2 = 0;
         for (gngs.Variant variant : batchOfVars) {
             // retrieve values
             String position = variant.getInfo().get("OriginalStart") != null ? (String) variant.getInfo().get("OriginalStart") : String.valueOf(variant.getPos());
             String chromosome = variant.getChr().replace("ch", "").replace("r", "");
-            String parentRefVariant = chromosome.concat("_").concat(position).concat("_").concat(variant.getRef()).concat("_").concat(variant.getAlt());
+            String variantRefTxt = chromosome.concat("_").concat(position).concat("_").concat(variant.getRef()).concat("_").concat(variant.getAlt());
 
-//            variantRefTxt = parentRefVariant;
-            if (found.containsKey(parentRefVariant)) {
-                logger.info(idx2 + " Existing record ID = " + parentRefVariant);
-                System.out.println(idx2 + " Existing record ID = " + parentRefVariant);
-            } else {
-                canonIdentifierId = cannonRecs.get(parentRefVariant);
+            canonIdentifierId = cannonRecs.get(variantRefTxt);
 
-                // get jannovar info
-                annotationParsed = infoParser.parse("ANN=".concat((String) variant.getInfo().get("ANN")));
-                String transcriptExistingConcatIds = "", transcriptFeatureConcatIds = "";
-                for (int i = 0; i < annotationParsed.size(); i++) {
-                    String transcriptId = annotationParsed.get(i).get("Feature_ID").split("\\.")[0];
-                    // check if transcript already exists, if not we add it to the map of new transcripts
-                    if (!transcriptRecs.containsKey(transcriptId)) {
-                        // gene name, variant ref txt, most pathogenic
-                        if (!newTranscriptsMap.containsKey(transcriptId))
-                            newTranscriptsMap.put(transcriptId, new String[]{ annotationParsed.get(i).get("Gene_Name"), parentRefVariant, String.valueOf(i == 0)});
-                    }
-                    transcriptExistingConcatIds = transcriptExistingConcatIds.equals("") ? String.valueOf(transcriptRecs.get(transcriptId)) : transcriptExistingConcatIds.concat(",").concat(String.valueOf(transcriptRecs.get(transcriptId)));
-                    transcriptFeatureConcatIds = transcriptFeatureConcatIds.equals("") ? transcriptFeatureConcatIds : transcriptFeatureConcatIds.concat(",").concat(transcriptId);
+            // get jannovar info
+            annotationParsed = infoParser.parse("ANN=".concat((String) variant.getInfo().get("ANN")));
+            String transcriptExistingConcatIds = "", transcriptFeatureConcatIds = "";
+            for (int i = 0; i < annotationParsed.size(); i++) {
+                String transcriptId = annotationParsed.get(i).get("Feature_ID").split("\\.")[0];
+                // check if transcript already exists, if not we add it to the map of new transcripts
+                if (!transcriptRecs.containsKey(transcriptId)) {
+                    // gene name, variant ref txt, most pathogenic
+                    if (!newTranscriptsMap.containsKey(transcriptId))
+                        newTranscriptsMap.put(transcriptId, new String[]{annotationParsed.get(i).get("Gene_Name"), variantRefTxt, String.valueOf(i == 0)});
                 }
-                // insert into temp table transcript variants
-                insertVariantTranscriptsTemp.setString(1, parentRefVariant);
-                insertVariantTranscriptsTemp.setString(2, transcriptExistingConcatIds);
-                insertVariantTranscriptsTemp.setString(3, transcriptFeatureConcatIds);
-                insertVariantTranscriptsTemp.addBatch();
+                transcriptExistingConcatIds = transcriptExistingConcatIds.equals("") ? String.valueOf(transcriptRecs.get(transcriptId)) : transcriptExistingConcatIds.concat(",").concat(String.valueOf(transcriptRecs.get(transcriptId)));
+                transcriptFeatureConcatIds = transcriptFeatureConcatIds.equals("") ? transcriptFeatureConcatIds : transcriptFeatureConcatIds.concat(",").concat(transcriptId);
+            }
+            // insert into temp table transcript variants
+            insertVariantTranscriptsTemp.setString(1, variantRefTxt);
+            insertVariantTranscriptsTemp.setString(2, transcriptExistingConcatIds);
+            insertVariantTranscriptsTemp.setString(3, transcriptFeatureConcatIds);
+            insertVariantTranscriptsTemp.addBatch();
 
-                // Do we want that? to link only the most pathogenic gene info to this variant? or do we have a one to many relationship?
-                String geneName = annotationParsed.get(0).get("Gene_Name");
-                Long geneId = geneSymbolRecs.get(geneName);
+            // Do we want that? to link only the most pathogenic gene info to this variant? or do we have a one to many relationship?
+            String geneName = annotationParsed.get(0).get("Gene_Name");
+            Long geneId = geneSymbolRecs.get(geneName);
 
-                // we get the first gene info in the jannovar info string
-                if (geneId == null) {
-                    // We check in the list of synonyms to get the corresponding gene
-                    geneId = getGeneBySynonyms(geneSynonymRecs, geneName);
-                }
-
-                insertVariants.setString(1, chromosome);
-                insertVariants.setInt(2, Integer.parseInt(position));
-                insertVariants.setString(3, variant.getAlt());
-                insertVariants.setString(4, variant.getRef());
-                insertVariants.setString(5, variant.getType());
-                String concatenations = concatenate(annotationParsed, "Annotation");
-                if (concatenations == null)
-                    insertVariants.setNull(6, Types.VARCHAR);
-                else
-                    insertVariants.setString(6, concatenations);
-                insertVariants.setString(7, assembly);
-                insertVariants.setBoolean(8, isRefAssembly(assembly));
-                insertVariants.setString(9, parentRefVariant);
-                insertVariants.setString(10, parentRefVariant);
-                concatenations = concatenate(annotationParsed, "HGVS.c");
-                if (concatenations == null)
-                    insertVariants.setNull(11, Types.VARCHAR);
-                else
-                    insertVariants.setString(11, concatenations);
-                concatenations = concatenate(annotationParsed, "HGVS.p");
-                if (concatenations == null)
-                    insertVariants.setNull(12, Types.VARCHAR);
-                else
-                    insertVariants.setString(12, concatenations);
-                insertVariants.setLong(13, canonIdentifierId);
-                if (geneId == null)
-                    insertVariants.setNull(14, Types.BIGINT);
-                else
-                    insertVariants.setLong(14, Long.valueOf(geneId));
-                insertVariants.setString(15, strainName);
-                insertVariants.addBatch();
+            // we get the first gene info in the jannovar info string
+            if (geneId == null) {
+                // We check in the list of synonyms to get the corresponding gene
+                geneId = getGeneBySynonyms(geneSynonymRecs, geneName);
             }
 
-            idx2++;
+            insertVariants.setString(1, chromosome);
+            insertVariants.setInt(2, Integer.parseInt(position));
+            insertVariants.setString(3, variant.getAlt());
+            insertVariants.setString(4, variant.getRef());
+            insertVariants.setString(5, variant.getType());
+            String concatenations = concatenate(annotationParsed, "Annotation");
+            if (concatenations == null)
+                insertVariants.setNull(6, Types.VARCHAR);
+            else
+                insertVariants.setString(6, concatenations);
+            insertVariants.setString(7, assembly);
+            insertVariants.setBoolean(8, isRefAssembly(assembly));
+            // for now we put the variantRefTxt in ParentVarRef too as we are inserting variants with assembly 38 already (no liftover)
+            insertVariants.setString(9, variantRefTxt);
+            insertVariants.setString(10, variantRefTxt);
+            concatenations = concatenate(annotationParsed, "HGVS.c");
+            if (concatenations == null)
+                insertVariants.setNull(11, Types.VARCHAR);
+            else
+                insertVariants.setString(11, concatenations);
+            concatenations = concatenate(annotationParsed, "HGVS.p");
+            if (concatenations == null)
+                insertVariants.setNull(12, Types.VARCHAR);
+            else
+                insertVariants.setString(12, concatenations);
+            insertVariants.setLong(13, canonIdentifierId);
+            if (geneId == null)
+                insertVariants.setNull(14, Types.BIGINT);
+            else
+                insertVariants.setLong(14, Long.valueOf(geneId));
+            insertVariants.setString(15, strainName);
+            insertVariants.addBatch();
+
         }
         insertVariantTranscriptsTemp.executeBatch();
         insertVariants.executeBatch();
@@ -496,7 +500,7 @@ public class VcfFileInsertionService {
         Statement selectStmt = connection.createStatement();
         ResultSet result = selectStmt.executeQuery(selectGeneBySynId);
         connection.setAutoCommit(false);
-        while(result.next()){
+        while (result.next()) {
             return result.getLong("gene_synonyms_id");
         }
         return null;
@@ -659,11 +663,34 @@ public class VcfFileInsertionService {
 //
 //    }
 
-//    public Object cleanUpGorm() {
-//        Object session = sessionFactory.currentSession;
-//        session.invokeMethod("flush", new Object[0]);
-//        return session.invokeMethod("clear", new Object[0]);
-//    }
+    private void saveNewTranscriptsToFile() {
+        String currentPath = (new File(".")).getAbsolutePath();
+        File file = new File(currentPath + "/NewTranscripts.txt");
+        FileWriter fr = null;
+        BufferedWriter br = null;
+        try{
+            fr = new FileWriter(file);
+            br = new BufferedWriter(fr);
+            br.write("transcript_id\tgene_name\tvariant_ref_txt\tis_most_pathogenic" + System.getProperty("line.separator"));
+            for (Map.Entry<String, String[]> entry : newTranscriptsMap.entrySet()) {
+                br.write(entry.getKey() + "\t" + entry.getValue()[0] + "\t"
+                        + entry.getValue()[1] + "\t" + entry.getValue()[2] + System.getProperty("line.separator"));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.out.println("Error writing new transcripts to file: " + e.getMessage());
+            logger.severe("Error writing new transcripts to file: " + e.getMessage());
+        }finally{
+            try {
+                br.close();
+                fr.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        System.out.println("New transcripts written to file:" + file.getName());
+        logger.info("New transcripts written to file:" + file.getName());
+    }
 
     private boolean isAcceptedAssembly(String inAssembly) {
         // TODO define configuration for accepted assemblies
