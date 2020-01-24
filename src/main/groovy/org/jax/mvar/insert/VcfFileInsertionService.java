@@ -1,6 +1,8 @@
 package org.jax.mvar.insert;
 
 import org.apache.commons.lang3.time.StopWatch;
+
+import gngs.Variant;
 import parser.AnnotationParser;
 import parser.InfoParser;
 import parser.VcfParser;
@@ -17,7 +19,6 @@ import java.util.logging.Logger;
 
 public class VcfFileInsertionService {
 
-    private Connection connection;
     private Map<String, String[]> newTranscriptsMap;
 //    private static final String ENSEMBL_URL = "http://rest.ensembl.org/";
     private static int batchSize = 1000;
@@ -58,21 +59,17 @@ public class VcfFileInsertionService {
             return;
         }
         logger.info("vcf File: " + vcfFileName);
-        try {
-            // get Properties
-            Config config = new Config();
-            // create JDBC connection
-            connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword());
+        // get Properties
+        Config config = new Config();
+        
+        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
             // get strain id/name
-            String[] strain = getStrainName(strainName);
+            String[] strain = getStrainName(connection, strainName);
             // Persist data
-            persistData(vcfFile, strain[0]);
+            persistData(connection, vcfFile, strain[0]);
         } catch (Exception e) {
             e.printStackTrace();
             logger.severe("An exception was caught: " + e.getMessage());
-            closeConnection();
-        } finally {
-            closeConnection();
         }
         // save new transcripts to file
         saveNewTranscriptsToFile(strainName);
@@ -81,25 +78,15 @@ public class VcfFileInsertionService {
         logger.info("Vcf file complete parsing and persistance: " + stopWatch + " time: " + new Date());
     }
 
-    private void closeConnection() {
-        if (connection != null) {
-            try {
-                connection.close();
-                logger.info("JDBC Connection closed");
-            } catch (SQLException exc) {
-                exc.printStackTrace();
-            }
-        }
-    }
-
     /**
      * We expect the strain name taken from the file name to be the same number of char as the strain
      * name in the database
      *
+     * @param connection jdbc connection
      * @param strainName strain name to look for
      * @return name of strain
      */
-    private String[] getStrainName(String strainName) throws SQLException {
+    private String[] getStrainName(Connection connection, String strainName) throws SQLException {
         Statement selectStrainId = connection.createStatement();
         ResultSet result = selectStrainId.executeQuery("SELECT * FROM strain WHERE name LIKE \'" + strainName + "\'");
         result.next();
@@ -113,7 +100,7 @@ public class VcfFileInsertionService {
      * 1. parse the vcf -- by chromosome ,
      * 2. Persist canonicals
      * 3. persist variants
-     * 4. persist variant associations
+     * 4. TODO persist variant/transcript associations
      * - canonical
      * - strain
      * - gene
@@ -121,10 +108,11 @@ public class VcfFileInsertionService {
      * - external ids
      * 5. construct search doc -- TODO: possible search docs for speed querying of data in site
      *
+     * @param connection jdbc connection 
      * @param vcfFile    file
      * @param strainName name of the strain
      */
-    private void persistData(File vcfFile, String strainName) throws Exception {
+    private void persistData(Connection connection, File vcfFile, String strainName) throws Exception {
         //persist data by chromosome -- TODO: check potential for multi-threaded process
         //TODO: add mouse chr to config
         List<String> mouseChromosomes = Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "X", "Y", "MT");
@@ -134,41 +122,36 @@ public class VcfFileInsertionService {
         // value : list of 3 strings with 0 = gene id, 1 = variant id, 2 = most pathogenic
         newTranscriptsMap = new LinkedHashMap<>();
         VcfParser parser = new VcfParser();
-        innoDBSetOptions(false);
+        innoDBSetOptions(connection, false);
 
-//        for (String type : varTypes) {
-//            logger.info("Variant type = " + type);
         for (String chr : mouseChromosomes) {
             final StopWatch stopWatch = new StopWatch();
             stopWatch.start();
 
-            List<gngs.Variant> vcfVariants = parser.parseVcf(chr, vcfFile, logger);
-//                List<gngs.Variant> vcfVariants = parser.parseVcf(chr, vcfFile, type, logger);
-
+            List<Variant> vcfVariants = parser.parseVcf(chr, vcfFile, logger);
             logger.info("CHR = " + chr + ", variant size= " + vcfVariants.size());
 
             //insert canonicals
-            insertCanonVariantsBatch(vcfVariants);
+            insertCanonVariantsBatch(connection, vcfVariants);
             //insert variants, transcript, hgvs and relationships, and collect new transcripts not in DB
-            insertVariantsBatch(vcfVariants, strainName);
+            insertVariantsBatch(connection, vcfVariants, strainName);
             logger.info("Chr= " + chr + " : persistance load = " + stopWatch + " time: " + new Date());
             stopWatch.reset();
             stopWatch.start();
         }
-
-//        }
         // add new Transcripts to DB (we write to file for now...)
 //        loadNewTranscripts((Map<String, List<String>>) newTranscriptsMap);
 
-        innoDBSetOptions(true);
+        innoDBSetOptions(connection, true);
     }
 
     /**
      * Enable/Disable ForeignKey checks, autocommit and unique checks
      *
+     * @param connection jdbc connection
      * @param isEnabled true or false
      */
-    private void innoDBSetOptions(boolean isEnabled) throws SQLException {
+    private void innoDBSetOptions(Connection connection, boolean isEnabled) throws SQLException {
         int val = isEnabled ? 1 : 0;
         connection.setAutoCommit(isEnabled);
         PreparedStatement foreignKeyCheckStmt = connection.prepareStatement("SET FOREIGN_KEY_CHECKS = ?");
@@ -183,19 +166,20 @@ public class VcfFileInsertionService {
     /**
      * Insert Canonicals in batch
      *
+     * @param connection jdbc connection
      * @param varList parsed vcf
      * @return
      */
-    private boolean insertCanonVariantsBatch(List<gngs.Variant> varList) throws SQLException {
+    private boolean insertCanonVariantsBatch(Connection connection, List<Variant> varList) throws SQLException {
         String UPDATE_CANONICAL_ID = "update variant_canon_identifier set caid = concat(\'MCA_\', lpad(id, 14, 0)) where caid is NULL";
 
-        List<gngs.Variant> batchOfVars = new ArrayList<>();
+        List<Variant> batchOfVars = new ArrayList<>();
         List<String> batchOfParentVariantRef = new ArrayList<>();
         // used to search quickly if values has already been inserted and exists in the batch
         Set<String> batchOfUniqueVar = new HashSet<>();
 
         int idx = 0;
-        for (gngs.Variant var : varList) {
+        for (Variant var : varList) {
             String position = var.getInfo().get("OriginalStart") != null ? (String) var.getInfo().get("OriginalStart") : String.valueOf(var.getPos());
             String chromosome = var.getChr().replace("ch", "").replace("r", "");
             String parentVariantRef = chromosome.concat("_").concat(position).concat("_").concat(var.getRef()).concat("_").concat(var.getAlt());
@@ -209,7 +193,7 @@ public class VcfFileInsertionService {
             batchOfUniqueVar.add(parentVariantRef);
 
             if (idx > 1 && idx % batchSize == 0) {
-                batchInsertCannonVariantsJDBC(batchOfVars, batchOfParentVariantRef);
+                batchInsertCannonVariantsJDBC(connection, batchOfVars, batchOfParentVariantRef);
                 //clear batch lists
                 batchOfVars.clear();
                 batchOfParentVariantRef.clear();
@@ -220,7 +204,7 @@ public class VcfFileInsertionService {
 
         //last batch
         if (batchOfVars.size() > 0) {
-            batchInsertCannonVariantsJDBC(batchOfVars, batchOfParentVariantRef);
+            batchInsertCannonVariantsJDBC(connection, batchOfVars, batchOfParentVariantRef);
             batchOfVars.clear();
             batchOfParentVariantRef.clear();
             batchOfUniqueVar.clear();
@@ -233,7 +217,7 @@ public class VcfFileInsertionService {
         return result;
     }
 
-    private Map<String, Long> selectAllFromColumnInList(String tableName, String columnName, List<String> listOfValues) throws SQLException {
+    private Map<String, Long> selectAllFromColumnInList(Connection connection, String tableName, String columnName, List<String> listOfValues) throws SQLException {
         String listOfValueAsStr = "";
         for (String value : listOfValues) {
             listOfValueAsStr = listOfValueAsStr.equals("") ? "'" + value + "'" : listOfValueAsStr.concat(",'").concat(value).concat("'");
@@ -253,21 +237,22 @@ public class VcfFileInsertionService {
     /**
      * Insert Canonicals using JDBC
      *
+     * @param connection jdbc connection
      * @param batchOfVars
      * @param batchOfParentVariantRef
      * @return
      */
-    private void batchInsertCannonVariantsJDBC(List<gngs.Variant> batchOfVars, List<String> batchOfParentVariantRef) throws SQLException {
+    private void batchInsertCannonVariantsJDBC(Connection connection, List<Variant> batchOfVars, List<String> batchOfParentVariantRef) throws SQLException {
         // set autocommit on
         connection.setAutoCommit(true);
-        Map<String, Long> found = selectAllFromColumnInList("variant_canon_identifier", "variant_ref_txt", batchOfParentVariantRef);
+        Map<String, Long> found = selectAllFromColumnInList(connection,"variant_canon_identifier", "variant_ref_txt", batchOfParentVariantRef);
         // set autocommit off
         connection.setAutoCommit(false);
         // insert canon variant
         PreparedStatement insertCanonVariants = connection.prepareStatement(VARIANT_CANON_INSERT, Statement.RETURN_GENERATED_KEYS);
 
         int idx2 = 0;
-        for (gngs.Variant variant : batchOfVars) {
+        for (Variant variant : batchOfVars) {
             String position = variant.getInfo().get("OriginalStart") != null ? (String) variant.getInfo().get("OriginalStart") : String.valueOf(variant.getPos());
             String chromosome = variant.getChr().replace("ch", "").replace("r", "");
             String parentRefVariant = chromosome.concat("_").concat(position).concat("_").concat(variant.getRef()).concat("_").concat(variant.getAlt());
@@ -294,11 +279,12 @@ public class VcfFileInsertionService {
     /**
      * Insert Variants, variants relationship (transcripts, strain) in batch
      *
+     * @param connection jdbc connection
      * @param varList    vcf list
      * @param strainName strain name
      */
-    private void insertVariantsBatch(List<gngs.Variant> varList, final String strainName) throws Exception {
-        List<gngs.Variant> batchOfVars = new ArrayList<>();
+    private void insertVariantsBatch(Connection connection, List<Variant> varList, final String strainName) throws Exception {
+        List<Variant> batchOfVars = new ArrayList<>();
         List<String> batchOfVariantRefTxt = new ArrayList<>();
         List<String> batchOfGenes = new ArrayList<>();
         List<String> batchOfTranscripts = new ArrayList<>();
@@ -306,7 +292,7 @@ public class VcfFileInsertionService {
         List<Map<String, String>> annotationParsed;
         InfoParser infoParser = new AnnotationParser();
         int idx = 0;
-        for (gngs.Variant var : varList) {
+        for (Variant var : varList) {
             batchOfVars.add(var);
 
             // Retrieve values
@@ -325,7 +311,7 @@ public class VcfFileInsertionService {
             batchOfTranscripts.add(annotationParsed.get(0).get("Feature_ID").split("\\.")[0]);
 
             if (idx > 1 && idx % batchSize == 0) {
-                batchInsertVariantsJDBC(batchOfVars, batchOfVariantRefTxt, batchOfGenes, batchOfTranscripts, strainName);
+                batchInsertVariantsJDBC(connection, batchOfVars, batchOfVariantRefTxt, batchOfGenes, batchOfTranscripts, strainName);
                 //clear batch lists
                 batchOfVars.clear();
                 batchOfVariantRefTxt.clear();
@@ -337,7 +323,7 @@ public class VcfFileInsertionService {
 
         //last batch
         if (batchOfVars.size() > 0) {
-            batchInsertVariantsJDBC(batchOfVars, batchOfVariantRefTxt, batchOfGenes, batchOfTranscripts, strainName);
+            batchInsertVariantsJDBC(connection, batchOfVars, batchOfVariantRefTxt, batchOfGenes, batchOfTranscripts, strainName);
             batchOfVars.clear();
             batchOfVariantRefTxt.clear();
             batchOfGenes.clear();
@@ -352,30 +338,31 @@ public class VcfFileInsertionService {
     /**
      * Insert variants, and relationships using JDBC
      *
+     * @param connection jdbc connection
      * @param batchOfVars
      * @param batchOfVariantRefTxt
      * @param batchOfGenes
      * @param batchOfTranscripts
      * @param strainName
      */
-    private void batchInsertVariantsJDBC(List<gngs.Variant> batchOfVars, List<String> batchOfVariantRefTxt, List<String> batchOfGenes, List<String> batchOfTranscripts, String strainName) throws Exception {
+    private void batchInsertVariantsJDBC(Connection connection, List<Variant> batchOfVars, List<String> batchOfVariantRefTxt, List<String> batchOfGenes, List<String> batchOfTranscripts, String strainName) throws Exception {
         // set autocommit on for the selects stmt
         connection.setAutoCommit(true);
 //        Map<String, Long> found = selectAllFromColumnInList("variant", "variant_ref_txt", batchOfVariantRefTxt);
 
         // records of all unique canon ids
 //        List<VariantCanonIdentifier> cannonRecs = ((Class<VariantCanonIdentifier>) org.jax.mvarcore.VariantCanonIdentifier).findAllByVariantRefTxtInList(batchOfParentVariantRefTxt);
-        Map<String, Long> cannonRecs = selectAllFromColumnInList("variant_canon_identifier", "variant_ref_txt", batchOfVariantRefTxt);
+        Map<String, Long> cannonRecs = selectAllFromColumnInList(connection, "variant_canon_identifier", "variant_ref_txt", batchOfVariantRefTxt);
 
         // records of all unique gene symbols
 //        List<Gene> geneSymbolRecs = ((Class<Gene>) org.jax.mvarcore.Gene).findAllBySymbolInList(batchOfGenes);
-        Map<String, Long> geneSymbolRecs = selectAllFromColumnInList("gene", "symbol", batchOfGenes);
+        Map<String, Long> geneSymbolRecs = selectAllFromColumnInList(connection, "gene", "symbol", batchOfGenes);
 
 //        List<Synonym> geneSynonymRecs = ((Class<Synonym>) org.jax.mvarcore.Synonym).findAllByNameInList(batchOfGenes)
-        Map<String, Long> geneSynonymRecs = selectAllFromColumnInList("synonym", "name", batchOfGenes);
+        Map<String, Long> geneSynonymRecs = selectAllFromColumnInList(connection, "synonym", "name", batchOfGenes);
 
 //        def transcriptsRecs = Transcript.findAllByPrimaryIdentifierInList(batchOfTranscripts)
-        Map<String, Long> transcriptRecs = selectAllFromColumnInList("transcript", "primary_identifier", batchOfTranscripts);
+        Map<String, Long> transcriptRecs = selectAllFromColumnInList(connection, "transcript", "primary_identifier", batchOfTranscripts);
 
         // set autocommit off again
         connection.setAutoCommit(false);
@@ -387,7 +374,7 @@ public class VcfFileInsertionService {
         List<Map<String, String>> annotationParsed;
         Long canonIdentifierId;
 
-        for (gngs.Variant variant : batchOfVars) {
+        for (Variant variant : batchOfVars) {
             // retrieve values
             String position = variant.getInfo().get("OriginalStart") != null ? (String) variant.getInfo().get("OriginalStart") : String.valueOf(variant.getPos());
             String chromosome = variant.getChr().replace("ch", "").replace("r", "");
@@ -422,7 +409,7 @@ public class VcfFileInsertionService {
             // we get the first gene info in the jannovar info string
             if (geneId == null) {
                 // We check in the list of synonyms to get the corresponding gene
-                geneId = getGeneBySynonyms(geneSynonymRecs, geneName);
+                geneId = getGeneBySynonyms(connection, geneSynonymRecs, geneName);
             }
 
             insertVariants.setString(1, chromosome);
@@ -483,7 +470,7 @@ public class VcfFileInsertionService {
         return null;
     }
 
-    private Long getGeneBySynonyms(Map<String, Long> geneSynonymRecs, final String geneName) throws SQLException {
+    private Long getGeneBySynonyms(Connection connection, Map<String, Long> geneSynonymRecs, final String geneName) throws SQLException {
         connection.setAutoCommit(true);
         Long synId = geneSynonymRecs.get(geneName);
         String selectGeneBySynId = "SELECT * FROM gene_synonym WHERE synonym_id=" + synId;
@@ -673,11 +660,11 @@ public class VcfFileInsertionService {
             try {
                 br.close();
                 fr.close();
+                logger.info("New transcripts written to file:" + file.getName());
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-        logger.info("New transcripts written to file:" + file.getName());
     }
 
     private boolean isAcceptedAssembly(String inAssembly) {
