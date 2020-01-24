@@ -75,7 +75,7 @@ public class VcfFileInsertionService {
             closeConnection();
         }
         // save new transcripts to file
-        saveNewTranscriptsToFile();
+        saveNewTranscriptsToFile(strainName);
 
         logger.info("vcf File: " + vcfFileName);
         logger.info("Vcf file complete parsing and persistance: " + stopWatch + " time: " + new Date());
@@ -177,7 +177,7 @@ public class VcfFileInsertionService {
         uniqueChecksStmt.setInt(1, val);
         uniqueChecksStmt.execute();
         foreignKeyCheckStmt.execute();
-        connection.commit();
+        if (!isEnabled) connection.commit();
     }
 
     /**
@@ -407,7 +407,7 @@ public class VcfFileInsertionService {
                         newTranscriptsMap.put(transcriptId, new String[]{annotationParsed.get(i).get("Gene_Name"), variantRefTxt, String.valueOf(i == 0)});
                 }
                 transcriptExistingConcatIds = transcriptExistingConcatIds.equals("") ? String.valueOf(transcriptRecs.get(transcriptId)) : transcriptExistingConcatIds.concat(",").concat(String.valueOf(transcriptRecs.get(transcriptId)));
-                transcriptFeatureConcatIds = transcriptFeatureConcatIds.equals("") ? transcriptFeatureConcatIds : transcriptFeatureConcatIds.concat(",").concat(transcriptId);
+                transcriptFeatureConcatIds = transcriptFeatureConcatIds.equals("") ? transcriptId : transcriptFeatureConcatIds.concat(",").concat(transcriptId);
             }
             // insert into temp table transcript variants
             insertVariantTranscriptsTemp.setString(1, variantRefTxt);
@@ -653,9 +653,9 @@ public class VcfFileInsertionService {
 //
 //    }
 
-    private void saveNewTranscriptsToFile() {
+    private void saveNewTranscriptsToFile(String strainName) {
         String currentPath = (new File(".")).getAbsolutePath();
-        File file = new File(currentPath + "/NewTranscripts.txt");
+        File file = new File(currentPath + "/" + strainName + "_NewTranscripts.txt");
         FileWriter fr = null;
         BufferedWriter br = null;
         try{
