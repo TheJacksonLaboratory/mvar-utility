@@ -2,23 +2,29 @@ package parser
 
 import gngs.VCF
 
-import java.util.logging.Logger
-
+/**
+ * Class that uses the gngs.VCF parser
+ * 
+ *
+ */
 class VcfParser {
 
-//    List<gngs.Variant> parseVcf(String chromosome, File vcfFile, String type, Logger logger) {
-    List<gngs.Variant> parseVcf(String chromosome, File vcfFile, Logger logger) {
+	/**
+	 * Parse a VCF file given a chrommosome and optionally a type.
+	 * @param chromosome can be 1, 2, 3, ...19, X, Y, MT
+	 * @param type can be SNP, DEL or INS
+	 * @param vcfFile
+	 * @return
+	 */
+    List<gngs.Variant> parseVcf(String chromosome, String type=null, File vcfFile) {
         List<gngs.Variant> varList
         try {
-            //vcfFileInputStream.line
             VCF vcf = VCF.parse(vcfFile.getPath()) { v ->
-                (v.chr == 'chr' + chromosome || v.chr == chromosome) //&& v.type == type
+                ((v.chr == 'chr' + chromosome || v.chr == chromosome) && (type != null ? v.type == type : true))
             }
             varList = vcf.getVariants()
-            logger.info("parsed variants = " + vcf.getVariants().size())
             println("parsed variants = " + vcf.getVariants().size())
         } catch (Exception e) {
-            logger.severe("Error reading the VCF file " + e.getMessage())
             String error = "Error reading the VCF file " + e.getMessage()
             println(error)
             throw e

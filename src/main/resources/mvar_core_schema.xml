@@ -1,0 +1,154 @@
+<?xml version="1.0"?>
+<mysqldump xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<database name="mvar_core">
+	<table_structure name="allele">
+		<field Field="id" Type="bigint(20)" Null="NO" Key="PRI" Extra="auto_increment" Comment="" />
+		<field Field="type" Type="varchar(255)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="name" Type="varchar(255)" Null="YES" Key="MUL" Extra="" Comment="" />
+		<field Field="primary_identifier" Type="varchar(255)" Null="YES" Key="UNI" Extra="" Comment="" />
+		<field Field="symbol" Type="varchar(255)" Null="YES" Key="" Extra="" Comment="" />
+		<key Table="allele" Non_unique="0" Key_name="PRIMARY" Seq_in_index="1" Column_name="id" Collation="A" Cardinality="826843" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="allele" Non_unique="0" Key_name="UK_t6lahvy2s7gqno7ti1k7i0dgw" Seq_in_index="1" Column_name="primary_identifier" Collation="A" Cardinality="826843" Null="YES" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="allele" Non_unique="1" Key_name="primary_identifier_idx" Seq_in_index="1" Column_name="primary_identifier" Collation="A" Cardinality="826843" Null="YES" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="allele" Non_unique="1" Key_name="name_idx" Seq_in_index="1" Column_name="name" Collation="A" Cardinality="826843" Null="YES" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="allele" Engine="InnoDB" Version="10" Row_format="Compact" Rows="810797" Avg_row_length="153" Data_length="124436480" Max_data_length="0" Index_length="171081728" Data_free="8737783808" Auto_increment="820157" Create_time="2020-01-22 20:40:35" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="gene">
+		<field Field="id" Type="bigint(20)" Null="NO" Key="PRI" Extra="auto_increment" Comment="" />
+		<field Field="version" Type="bigint(20)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="entrez_gene_id" Type="varchar(255)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="ensembl_gene_id" Type="varchar(255)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="name" Type="text" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="type" Type="varchar(255)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="chr" Type="varchar(255)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="symbol" Type="varchar(255)" Null="NO" Key="MUL" Extra="" Comment="" />
+		<field Field="description" Type="text" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="mgi_id" Type="varchar(255)" Null="NO" Key="UNI" Extra="" Comment="" />
+		<key Table="gene" Non_unique="0" Key_name="PRIMARY" Seq_in_index="1" Column_name="id" Collation="A" Cardinality="87575" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="gene" Non_unique="0" Key_name="UK_efireec2wler9rq9n64it0oej" Seq_in_index="1" Column_name="mgi_id" Collation="A" Cardinality="87575" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="gene" Non_unique="1" Key_name="symbol_idx" Seq_in_index="1" Column_name="symbol" Collation="A" Cardinality="87575" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="gene" Non_unique="1" Key_name="mgi_id_idx" Seq_in_index="1" Column_name="mgi_id" Collation="A" Cardinality="87575" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="gene" Engine="InnoDB" Version="10" Row_format="Compact" Rows="126532" Avg_row_length="186" Data_length="23658496" Max_data_length="0" Index_length="10010624" Data_free="8737783808" Auto_increment="71427" Create_time="2020-01-22 20:39:41" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="gene_synonym">
+		<field Field="gene_synonyms_id" Type="bigint(20)" Null="NO" Key="MUL" Extra="" Comment="" />
+		<field Field="synonym_id" Type="bigint(20)" Null="YES" Key="MUL" Extra="" Comment="" />
+		<key Table="gene_synonym" Non_unique="1" Key_name="FKfbfh2slwphpeayvjvcuqudb8a" Seq_in_index="1" Column_name="synonym_id" Collation="A" Cardinality="296103" Null="YES" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="gene_synonym" Non_unique="1" Key_name="FKrb987ngywf2ngm0a72yf9gsyr" Seq_in_index="1" Column_name="gene_synonyms_id" Collation="A" Cardinality="296103" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="gene_synonym" Engine="InnoDB" Version="10" Row_format="Compact" Rows="296103" Avg_row_length="47" Data_length="14172160" Max_data_length="0" Index_length="13664256" Data_free="8737783808" Create_time="2020-01-22 20:39:42" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="gene_transcript">
+		<field Field="gene_transcripts_id" Type="bigint(20)" Null="NO" Key="MUL" Extra="" Comment="" />
+		<field Field="transcript_id" Type="bigint(20)" Null="YES" Key="MUL" Extra="" Comment="" />
+		<key Table="gene_transcript" Non_unique="1" Key_name="FK32ww7k8241huue0ruk1t5h0o" Seq_in_index="1" Column_name="transcript_id" Collation="A" Cardinality="148968" Null="YES" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="gene_transcript" Non_unique="1" Key_name="FKojfcyehq0p8adm62imm5es21e" Seq_in_index="1" Column_name="gene_transcripts_id" Collation="A" Cardinality="148968" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="gene_transcript" Engine="InnoDB" Version="10" Row_format="Compact" Rows="148968" Avg_row_length="45" Data_length="6832128" Max_data_length="0" Index_length="9469952" Data_free="8737783808" Create_time="2020-01-22 20:39:42" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="strain">
+		<field Field="id" Type="bigint(20)" Null="NO" Key="PRI" Extra="auto_increment" Comment="" />
+		<field Field="version" Type="bigint(20)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="primary_identifier" Type="varchar(255)" Null="NO" Key="UNI" Extra="" Comment="" />
+		<field Field="attributes" Type="varchar(255)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="name" Type="varchar(255)" Null="NO" Key="MUL" Extra="" Comment="" />
+		<key Table="strain" Non_unique="0" Key_name="PRIMARY" Seq_in_index="1" Column_name="id" Collation="A" Cardinality="48544" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="strain" Non_unique="0" Key_name="UK_9yk872vv7mdnw8ig4xams7o3b" Seq_in_index="1" Column_name="primary_identifier" Collation="A" Cardinality="48544" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="strain" Non_unique="1" Key_name="primary_identifier_idx" Seq_in_index="1" Column_name="primary_identifier" Collation="A" Cardinality="48544" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="strain" Non_unique="1" Key_name="name_idx" Seq_in_index="1" Column_name="name" Collation="A" Cardinality="48544" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="strain" Engine="InnoDB" Version="10" Row_format="Compact" Rows="51536" Avg_row_length="132" Data_length="6832128" Max_data_length="0" Index_length="10010624" Data_free="8737783808" Auto_increment="48762" Create_time="2020-01-22 20:39:41" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="strain_alleles">
+		<field Field="allele_id" Type="bigint(20)" Null="NO" Key="PRI" Extra="" Comment="" />
+		<field Field="strain_id" Type="bigint(20)" Null="NO" Key="PRI" Extra="" Comment="" />
+		<key Table="strain_alleles" Non_unique="0" Key_name="PRIMARY" Seq_in_index="1" Column_name="strain_id" Collation="A" Cardinality="56891" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="strain_alleles" Non_unique="0" Key_name="PRIMARY" Seq_in_index="2" Column_name="allele_id" Collation="A" Cardinality="56891" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="strain_alleles" Non_unique="1" Key_name="FKdu44qi8eyv05ry0d3051e4pqx" Seq_in_index="1" Column_name="allele_id" Collation="A" Cardinality="56891" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="strain_alleles" Engine="InnoDB" Version="10" Row_format="Compact" Rows="56891" Avg_row_length="46" Data_length="2637824" Max_data_length="0" Index_length="2637824" Data_free="8737783808" Create_time="2020-01-22 20:39:42" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="synonym">
+		<field Field="id" Type="bigint(20)" Null="NO" Key="PRI" Extra="auto_increment" Comment="" />
+		<field Field="version" Type="bigint(20)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="name" Type="text" Null="YES" Key="" Extra="" Comment="" />
+		<key Table="synonym" Non_unique="0" Key_name="PRIMARY" Seq_in_index="1" Column_name="id" Collation="A" Cardinality="296201" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="synonym" Engine="InnoDB" Version="10" Row_format="Compact" Rows="296841" Avg_row_length="58" Data_length="17350656" Max_data_length="0" Index_length="0" Data_free="8737783808" Auto_increment="295577" Create_time="2020-01-22 20:39:40" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="transcript">
+		<field Field="id" Type="bigint(20)" Null="NO" Key="PRI" Extra="auto_increment" Comment="" />
+		<field Field="primary_identifier" Type="varchar(255)" Null="NO" Key="UNI" Extra="" Comment="" />
+		<field Field="length" Type="int(11)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="location_start" Type="bigint(20)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="location_end" Type="bigint(20)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="mgi_gene_identifier" Type="varchar(255)" Null="YES" Key="MUL" Extra="" Comment="" />
+		<field Field="chromosome" Type="varchar(255)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="ens_gene_identifier" Type="varchar(255)" Null="YES" Key="MUL" Extra="" Comment="" />
+		<key Table="transcript" Non_unique="0" Key_name="PRIMARY" Seq_in_index="1" Column_name="id" Collation="A" Cardinality="141759" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="transcript" Non_unique="0" Key_name="UK_o9wp6uagcn2rygtdo4ckje4o4" Seq_in_index="1" Column_name="primary_identifier" Collation="A" Cardinality="141759" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="transcript" Non_unique="1" Key_name="transcript_primary_identifier_idx" Seq_in_index="1" Column_name="primary_identifier" Collation="A" Cardinality="141759" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="transcript" Non_unique="1" Key_name="transcript_ens_gene_identifier_idx" Seq_in_index="1" Column_name="ens_gene_identifier" Collation="A" Cardinality="3" Null="YES" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="transcript" Non_unique="1" Key_name="transcript_mgi_gene_identifier_idx" Seq_in_index="1" Column_name="mgi_gene_identifier" Collation="A" Cardinality="141759" Null="YES" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="transcript" Engine="InnoDB" Version="10" Row_format="Compact" Rows="149852" Avg_row_length="101" Data_length="15220736" Max_data_length="0" Index_length="24215552" Data_free="8737783808" Auto_increment="148431" Create_time="2020-01-22 20:40:54" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="variant">
+		<field Field="id" Type="bigint(20)" Null="NO" Key="PRI" Extra="auto_increment" Comment="" />
+		<field Field="canon_var_identifier_id" Type="bigint(20)" Null="NO" Key="MUL" Extra="" Comment="" />
+		<field Field="gene_id" Type="bigint(20)" Null="YES" Key="MUL" Extra="" Comment="" />
+		<field Field="dna_hgvs_notation" Type="text" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="alt" Type="char(100)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="chr" Type="char(3)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="accession" Type="varchar(255)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="functional_class_code" Type="text" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="position" Type="bigint(20)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="parent_variant_ref_txt" Type="varchar(255)" Null="NO" Key="MUL" Extra="" Comment="" />
+		<field Field="assembly" Type="varchar(255)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="variant_ref_txt" Type="varchar(255)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="type" Type="varchar(255)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="parent_ref_ind" Type="bit(1)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="external_source" Type="varchar(255)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="protein_hgvs_notation" Type="text" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="ref" Type="char(100)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="strain_name" Type="varchar(255)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="external_id" Type="varchar(255)" Null="YES" Key="" Extra="" Comment="" />
+		<key Table="variant" Non_unique="0" Key_name="PRIMARY" Seq_in_index="1" Column_name="id" Collation="A" Cardinality="0" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="variant" Non_unique="1" Key_name="variant_parent_variant_ref_txt_idx" Seq_in_index="1" Column_name="parent_variant_ref_txt" Collation="A" Cardinality="0" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="variant" Non_unique="1" Key_name="FKetmrlrp4v098euq7l9ds8jy18" Seq_in_index="1" Column_name="canon_var_identifier_id" Collation="A" Cardinality="0" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="variant" Non_unique="1" Key_name="FKpcctanf8b2la4d5ndrsjm91xg" Seq_in_index="1" Column_name="gene_id" Collation="A" Cardinality="0" Null="YES" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="variant" Engine="InnoDB" Version="10" Row_format="Compact" Rows="0" Avg_row_length="0" Data_length="16384" Max_data_length="0" Index_length="49152" Data_free="8737783808" Auto_increment="1" Create_time="2020-01-24 15:46:29" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="variant_canon_identifier">
+		<field Field="id" Type="bigint(20)" Null="NO" Key="PRI" Extra="auto_increment" Comment="" />
+		<field Field="version" Type="bigint(20)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="position" Type="bigint(20)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="caid" Type="varchar(255)" Null="YES" Key="" Extra="" Comment="" />
+		<field Field="variant_ref_txt" Type="varchar(255)" Null="NO" Key="UNI" Extra="" Comment="" />
+		<field Field="chr" Type="char(3)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="alt" Type="char(100)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="ref" Type="char(100)" Null="NO" Key="" Extra="" Comment="" />
+		<key Table="variant_canon_identifier" Non_unique="0" Key_name="PRIMARY" Seq_in_index="1" Column_name="id" Collation="A" Cardinality="0" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="variant_canon_identifier" Non_unique="0" Key_name="UK_iejxyq4ai67s3sqqy4ws91fq2" Seq_in_index="1" Column_name="variant_ref_txt" Collation="A" Cardinality="0" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="variant_canon_identifier" Non_unique="1" Key_name="variant_canon_identifier_variant_ref_txt_idx" Seq_in_index="1" Column_name="variant_ref_txt" Collation="A" Cardinality="0" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="variant_canon_identifier" Engine="InnoDB" Version="10" Row_format="Compact" Rows="0" Avg_row_length="0" Data_length="16384" Max_data_length="0" Index_length="32768" Data_free="8737783808" Auto_increment="1" Create_time="2020-01-24 15:46:28" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="variant_strain">
+		<field Field="variant_strains_id" Type="bigint(20)" Null="NO" Key="MUL" Extra="" Comment="" />
+		<field Field="strain_id" Type="bigint(20)" Null="YES" Key="MUL" Extra="" Comment="" />
+		<key Table="variant_strain" Non_unique="1" Key_name="FKabtdcrwjndg7s838ytcjy992x" Seq_in_index="1" Column_name="strain_id" Collation="A" Cardinality="0" Null="YES" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="variant_strain" Non_unique="1" Key_name="FKsj5ip9hx14k0ij6rcn5xegfkb" Seq_in_index="1" Column_name="variant_strains_id" Collation="A" Cardinality="0" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="variant_strain" Engine="InnoDB" Version="10" Row_format="Compact" Rows="0" Avg_row_length="0" Data_length="16384" Max_data_length="0" Index_length="32768" Data_free="8737783808" Create_time="2020-01-24 15:46:29" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="variant_transcript">
+		<field Field="variant_transcripts_id" Type="bigint(20)" Null="NO" Key="MUL" Extra="" Comment="" />
+		<field Field="transcript_id" Type="bigint(20)" Null="YES" Key="MUL" Extra="" Comment="" />
+		<field Field="most_pathogenic" Type="tinyint(1)" Null="YES" Key="" Extra="" Comment="" />
+		<key Table="variant_transcript" Non_unique="1" Key_name="FKqmfh51cbmjsol223rv7cd2cmp" Seq_in_index="1" Column_name="transcript_id" Collation="A" Cardinality="0" Null="YES" Index_type="BTREE" Comment="" Index_comment="" />
+		<key Table="variant_transcript" Non_unique="1" Key_name="FK32we7ihispy46fgsq8n2egqs7" Seq_in_index="1" Column_name="variant_transcripts_id" Collation="A" Cardinality="0" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="variant_transcript" Engine="InnoDB" Version="10" Row_format="Compact" Rows="0" Avg_row_length="0" Data_length="16384" Max_data_length="0" Index_length="32768" Data_free="8737783808" Create_time="2020-01-24 15:46:35" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+	<table_structure name="variant_transcript_temp">
+		<field Field="id" Type="bigint(20)" Null="NO" Key="PRI" Extra="auto_increment" Comment="" />
+		<field Field="transcript_ids" Type="text" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="variant_ref_txt" Type="varchar(255)" Null="NO" Key="" Extra="" Comment="" />
+		<field Field="transcript_feature_ids" Type="text" Null="NO" Key="" Extra="" Comment="" />
+		<key Table="variant_transcript_temp" Non_unique="0" Key_name="PRIMARY" Seq_in_index="1" Column_name="id" Collation="A" Cardinality="0" Null="" Index_type="BTREE" Comment="" Index_comment="" />
+		<options Name="variant_transcript_temp" Engine="InnoDB" Version="10" Row_format="Compact" Rows="0" Avg_row_length="0" Data_length="16384" Max_data_length="0" Index_length="0" Data_free="8737783808" Auto_increment="1" Create_time="2020-01-24 15:46:28" Collation="utf8_unicode_ci" Create_options="" Comment="" />
+	</table_structure>
+</database>
+</mysqldump>
