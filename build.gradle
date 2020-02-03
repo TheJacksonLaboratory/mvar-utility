@@ -31,6 +31,8 @@ configurations {
 }
 
 dependencies {
+    compile 'org.eclipse.collections:eclipse-collections-api:10.1.0'
+    compile 'org.eclipse.collections:eclipse-collections:10.1.0'
     compile group: 'org.codehaus.groovy', name: 'groovy-all', version: '2.5.8'
     compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
     compile fileTree(dir: 'libs', include: '*.jar')

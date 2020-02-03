@@ -3,6 +3,11 @@ package org.jax.mvar.insert;
 import org.apache.commons.lang3.time.StopWatch;
 
 import gngs.Variant;
+import org.eclipse.collections.api.map.primitive.MutableObjectLongMap;
+import org.eclipse.collections.impl.list.mutable.FastList;
+import org.eclipse.collections.impl.map.mutable.UnifiedMap;
+import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
+import org.eclipse.collections.impl.set.mutable.UnifiedSet;
 import parser.AnnotationParser;
 import parser.InfoParser;
 import parser.VcfParser;
@@ -16,10 +21,9 @@ import java.util.*;
 import java.util.Date;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class VcfFileInsertionService {
+public class VariantInsertion {
 
     private Map<String, String[]> newTranscriptsMap;
-//    private static final String ENSEMBL_URL = "http://rest.ensembl.org/";
 
     private final static List<String> MOUSE_CHROMOSOMES = Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "X", "Y", "MT");
     private final static List<String> VARIANT_TYPES = Arrays.asList("SNP", "DEL", "INS");
@@ -37,12 +41,15 @@ public class VcfFileInsertionService {
      * @param vcfFile VCF file, can be gzipped or vcf format
      * @param batchNumber a batch number of 1000 is advised if enough memory (7G) is allocated to the JVM
      *                    Ultimately, the batch number depends on the File size and the JVM max and min memory
-     * @param useType if true, the VCF parser will iterate through the types of variants in order to minimise the
+     * @param types Can be ALL, SNP, DEL or INS. the VCF parser will iterate through the types of variants in order to minimise the
      *                memory footprint in the heap (dividing by 3 since there are three type).
      */
-    public void loadVCF(File vcfFile, int batchNumber, boolean useType) {
+    public void loadVCF(File vcfFile, int batchNumber, String[] types) {
         batchSize = batchNumber;
-        System.out.println("Batch size = " + batchSize + ", use_type = " + useType);
+        String typeName = null;
+        for (String type : types)
+            typeName = typeName == null ? type : typeName.concat(",").concat(type);
+        System.out.println("Batch size = " + batchSize + ", type = " + typeName);
 
         final StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -66,7 +73,7 @@ public class VcfFileInsertionService {
             // get strain id/name
             String[] strain = getStrainName(connection, strainName);
             // Persist data
-            persistData(connection, vcfFile, strain[0], useType);
+            persistData(connection, vcfFile, strain[0], types);
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("An exception was caught: " + e.getMessage());
@@ -110,50 +117,49 @@ public class VcfFileInsertionService {
      * @param connection jdbc connection 
      * @param vcfFile    file
      * @param strainName name of the strain
-     * @param useType if true we use type to parse the data
+     * @param types ALL, SNP, DEL and/or INS
      */
-    private void persistData(Connection connection, File vcfFile, String strainName, boolean useType) throws Exception {
+    private void persistData(Connection connection, File vcfFile, String strainName, String[] types) throws Exception {
         //persist data by chromosome -- TODO: check potential for multi-threaded process
         //TODO: add mouse chr to config
 
         // Map used to collect non-existing transcripts in DB
         // key : transcript id
         // value : list of 3 strings with 0 = gene id, 1 = variant id, 2 = most pathogenic
-        newTranscriptsMap = new ConcurrentHashMap<>();
+        if (newTranscriptsMap == null)
+            newTranscriptsMap = new ConcurrentHashMap<>();
+        else
+            newTranscriptsMap.clear();
         VcfParser parser = new VcfParser();
         innoDBSetOptions(connection, false);
-        if (useType) {
-            for (String type : VARIANT_TYPES) {
-                insert(connection, vcfFile, parser, strainName, type);
-            }
-        } else {
-            insert(connection, vcfFile, parser, strainName, null);
-        }
 
+        insert(connection, vcfFile, parser, strainName, types);
         // add new Transcripts to DB (we write to file for now...)
 //        loadNewTranscripts((Map<String, List<String>>) newTranscriptsMap);
 
         innoDBSetOptions(connection, true);
     }
 
-    private void insert(Connection connection, File vcfFile, VcfParser parser, String strainName, String type) throws Exception {
-        for (String chr : MOUSE_CHROMOSOMES) {
-            final StopWatch stopWatch = new StopWatch();
-            stopWatch.start();
+    private void insert(Connection connection, File vcfFile, VcfParser parser, String strainName, String[] types) throws Exception {
+        for (String type : types) {
+            for (String chr : MOUSE_CHROMOSOMES) {
+                final StopWatch stopWatch = new StopWatch();
+                stopWatch.start();
 
-            List<Variant> vcfVariants = parser.parseVcf(chr, type, vcfFile);
-            int numOfVariants = vcfVariants.size();
-            System.out.println("CHR = " + chr + ", variant size= " + numOfVariants);
+                List<Variant> vcfVariants = parser.parseVcf(chr, type, vcfFile);
+                int numOfVariants = vcfVariants.size();
+                System.out.println("CHR = " + chr + ", variant size= " + numOfVariants + ", type=" + type);
 
-            //insert canonicals
-            int numOfExistingRecords = insertCanonVariantsBatch(connection, vcfVariants);
-            //insert variants, transcript, hgvs and relationships, and collect new transcripts not in DB
-            insertVariantsBatch(connection, vcfVariants, strainName);
-            System.out.println("CHR,SIZE,DURATION,DATE");
-            System.out.println(chr + "," + numOfVariants + "," + stopWatch + "," + new Date());
-            System.out.println("Number of existing records in canonicals: " + numOfExistingRecords);
-            stopWatch.reset();
-            stopWatch.start();
+                //insert canonicals
+                int numOfExistingRecords = insertCanonVariantsBatch(connection, vcfVariants);
+                //insert variants, transcript, hgvs and relationships, and collect new transcripts not in DB
+                insertVariantsBatch(connection, vcfVariants, strainName);
+                System.out.println("CHR,SIZE,DURATION,DATE");
+                System.out.println(chr + "," + numOfVariants + "," + stopWatch + "," + new Date());
+                System.out.println("Number of existing records in canonicals: " + numOfExistingRecords);
+                stopWatch.reset();
+                stopWatch.start();
+            }
         }
     }
 
@@ -185,10 +191,10 @@ public class VcfFileInsertionService {
     private int insertCanonVariantsBatch(Connection connection, List<Variant> varList) throws SQLException {
         String UPDATE_CANONICAL_ID = "update variant_canon_identifier set caid = concat(\'MCA_\', lpad(id, 14, 0)) where caid is NULL";
 
-        List<Variant> batchOfVars = new ArrayList<>();
-        List<String> batchOfParentVariantRef = new ArrayList<>();
+        List<Variant> batchOfVars = new FastList<>();
+        List<String> batchOfParentVariantRef = new FastList<>();
         // used to search quickly if values has already been inserted and exists in the batch
-        Set<String> batchOfUniqueVar = new HashSet<>();
+        Set<String> batchOfUniqueVar = new UnifiedSet<>();
 
         int idx = 0, numberOfExistingRecords = 0;
         for (Variant var : varList) {
@@ -229,7 +235,7 @@ public class VcfFileInsertionService {
         return numberOfExistingRecords;
     }
 
-    private Map<String, Long> selectAllFromColumnInList(Connection connection, String tableName, String columnName, List<String> listOfValues) throws SQLException {
+    private MutableObjectLongMap selectAllFromColumnInList(Connection connection, String tableName, String columnName, List<String> listOfValues) throws SQLException {
         String listOfValueAsStr = "";
         for (String value : listOfValues) {
             listOfValueAsStr = listOfValueAsStr.equals("") ? "'" + value + "'" : listOfValueAsStr.concat(",'").concat(value).concat("'");
@@ -237,7 +243,7 @@ public class VcfFileInsertionService {
         String SELECT_ALL_FROM_TABLE_IN_LIST = "SELECT ID, " + columnName + " FROM " + tableName + " WHERE " + columnName + " IN (" + listOfValueAsStr + ");";
         Statement selectAllStmt = connection.createStatement();
         ResultSet result = selectAllStmt.executeQuery(SELECT_ALL_FROM_TABLE_IN_LIST);
-        Map<String, Long> resultMap = new HashMap<>();
+        MutableObjectLongMap resultMap = new ObjectLongHashMap();
         while (result.next()) {
             resultMap.put(result.getString(columnName), result.getLong("ID"));
         }
@@ -255,7 +261,7 @@ public class VcfFileInsertionService {
     private int batchInsertCannonVariantsJDBC(Connection connection, List<Variant> batchOfVars, List<String> batchOfParentVariantRef) throws SQLException {
         // set autocommit on
         connection.setAutoCommit(true);
-        Map<String, Long> found = selectAllFromColumnInList(connection,"variant_canon_identifier", "variant_ref_txt", batchOfParentVariantRef);
+        MutableObjectLongMap found = selectAllFromColumnInList(connection,"variant_canon_identifier", "variant_ref_txt", batchOfParentVariantRef);
         // set autocommit off
         connection.setAutoCommit(false);
         // insert canon variant
@@ -279,9 +285,11 @@ public class VcfFileInsertionService {
                 insertCanonVariants.addBatch();
             }
         }
-
-        insertCanonVariants.executeBatch();
-        connection.commit();
+        // If numberOfExisting records is equal to ths batch size : no need to execute batch if it is empty
+        if (numberOfExistingRecordIds != batchOfVars.size()) {
+            insertCanonVariants.executeBatch();
+            connection.commit();
+        }
         return numberOfExistingRecordIds;
     }
 
@@ -293,10 +301,10 @@ public class VcfFileInsertionService {
      * @param strainName strain name
      */
     private void insertVariantsBatch(Connection connection, List<Variant> varList, final String strainName) throws Exception {
-        List<Variant> batchOfVars = new ArrayList<>();
-        List<String> batchOfVariantRefTxt = new ArrayList<>();
-        List<String> batchOfGenes = new ArrayList<>();
-        List<String> batchOfTranscripts = new ArrayList<>();
+        List<Variant> batchOfVars = new FastList<>();
+        List<String> batchOfVariantRefTxt = new FastList<>();
+        List<String> batchOfGenes = new FastList<>();
+        List<String> batchOfTranscripts = new FastList<>();
 
         List<Map<String, String>> annotationParsed;
         InfoParser infoParser = new AnnotationParser();
@@ -358,17 +366,17 @@ public class VcfFileInsertionService {
 
         // records of all unique canon ids
 //        List<VariantCanonIdentifier> cannonRecs = ((Class<VariantCanonIdentifier>) org.jax.mvarcore.VariantCanonIdentifier).findAllByVariantRefTxtInList(batchOfParentVariantRefTxt);
-        Map<String, Long> cannonRecs = selectAllFromColumnInList(connection, "variant_canon_identifier", "variant_ref_txt", batchOfVariantRefTxt);
+        MutableObjectLongMap cannonRecs = selectAllFromColumnInList(connection, "variant_canon_identifier", "variant_ref_txt", batchOfVariantRefTxt);
 
         // records of all unique gene symbols
 //        List<Gene> geneSymbolRecs = ((Class<Gene>) org.jax.mvarcore.Gene).findAllBySymbolInList(batchOfGenes);
-        Map<String, Long> geneSymbolRecs = selectAllFromColumnInList(connection, "gene", "symbol", batchOfGenes);
+        MutableObjectLongMap geneSymbolRecs = selectAllFromColumnInList(connection, "gene", "symbol", batchOfGenes);
 
 //        List<Synonym> geneSynonymRecs = ((Class<Synonym>) org.jax.mvarcore.Synonym).findAllByNameInList(batchOfGenes)
-        Map<String, Long> geneSynonymRecs = selectAllFromColumnInList(connection, "synonym", "name", batchOfGenes);
+        MutableObjectLongMap geneSynonymRecs = selectAllFromColumnInList(connection, "synonym", "name", batchOfGenes);
 
 //        def transcriptsRecs = Transcript.findAllByPrimaryIdentifierInList(batchOfTranscripts)
-        Map<String, Long> transcriptRecs = selectAllFromColumnInList(connection, "transcript", "primary_identifier", batchOfTranscripts);
+        MutableObjectLongMap transcriptRecs = selectAllFromColumnInList(connection, "transcript", "primary_identifier", batchOfTranscripts);
 
         // set autocommit off again
         connection.setAutoCommit(false);
@@ -378,7 +386,7 @@ public class VcfFileInsertionService {
         PreparedStatement insertVariantTranscriptsTemp = connection.prepareStatement(VARIANT_TRANSCRIPT_TEMP);
 
         List<Map<String, String>> annotationParsed;
-        Long canonIdentifierId;
+        long canonIdentifierId;
 
         for (Variant variant : batchOfVars) {
             // retrieve values
@@ -410,10 +418,10 @@ public class VcfFileInsertionService {
 
             // Do we want that? to link only the most pathogenic gene info to this variant? or do we have a one to many relationship?
             String geneName = annotationParsed.get(0).get("Gene_Name");
-            Long geneId = geneSymbolRecs.get(geneName);
+            long geneId = geneSymbolRecs.get(geneName);
 
             // we get the first gene info in the jannovar info string
-            if (geneId == null) {
+            if (geneId == -1) {
                 // We check in the list of synonyms to get the corresponding gene
                 geneId = getGeneBySynonyms(connection, geneSynonymRecs, geneName);
             }
@@ -444,10 +452,10 @@ public class VcfFileInsertionService {
             else
                 insertVariants.setString(12, concatenations);
             insertVariants.setLong(13, canonIdentifierId);
-            if (geneId == null)
+            if (geneId == -1)
                 insertVariants.setNull(14, Types.BIGINT);
             else
-                insertVariants.setLong(14, Long.valueOf(geneId));
+                insertVariants.setLong(14, geneId);
             insertVariants.setString(15, strainName);
             insertVariants.addBatch();
 
@@ -476,9 +484,17 @@ public class VcfFileInsertionService {
         return null;
     }
 
-    private Long getGeneBySynonyms(Connection connection, Map<String, Long> geneSynonymRecs, final String geneName) throws SQLException {
+    /**
+     *
+     * @param connection
+     * @param geneSynonymRecs
+     * @param geneName
+     * @return Returns -1 if no result was found
+     * @throws SQLException
+     */
+    private long getGeneBySynonyms(Connection connection, MutableObjectLongMap geneSynonymRecs, final String geneName) throws SQLException {
         connection.setAutoCommit(true);
-        Long synId = geneSynonymRecs.get(geneName);
+        long synId = geneSynonymRecs.get(geneName);
         String selectGeneBySynId = "SELECT * FROM gene_synonym WHERE synonym_id=" + synId;
         Statement selectStmt = connection.createStatement();
         ResultSet result = selectStmt.executeQuery(selectGeneBySynId);
@@ -486,165 +502,8 @@ public class VcfFileInsertionService {
         while (result.next()) {
             return result.getLong("gene_synonyms_id");
         }
-        return null;
+        return -1;
     }
-
-//    /**
-//     * Load new transcripts from the Ensembl Rest API given an ID and a List of Gene and Variant ID
-//     * The Gene ID and Variant ID associated with the transcript
-//     *
-//     * @param ids
-//     */
-//    public void loadNewTranscripts(Map<String, List<String>> ids) {
-//        System.out.println("*** ADD NEW TRANSCRIPTS **");
-//        String lookupQuery = "lookup/id/";
-//        String url = ENSEMBL_URL;
-//        RestBuilder rest = new RestBuilder();
-//        List<Object> transcriptList = new ArrayList();
-//
-//        for (Map.Entry<String, List<String>> entry : ids.entrySet()) {
-//            TranscriptContainer transcript = loadNewTranscript(rest, url + lookupQuery, entry.getKey(), entry.getValue());
-//            if (transcript != null)
-//                transcriptList.add(transcript);
-//        }
-//
-//        // as size might be small we set the batch size to the list size (so we have only one batch
-//        saveNewTranscripts(transcriptList, transcriptList.size());
-//    }
-//
-//    /**
-//     * Load new transcript in DB given the transcript id. Using a RestBuilder, we connect to the
-//     * Ensembl RESTAPI to retrieve the info if it exists.
-//     *
-//     * @param rest
-//     * @param url
-//     * @param id
-//     * @param idsAndMostPathogenic
-//     * @return
-//     */
-//    private TranscriptContainer loadNewTranscript(RestBuilder rest, String url, String id, final List<String> idsAndMostPathogenic) {
-//        String fullQuery = url + id + "?content-type=application/json;expand=1";
-//       RestResponse resp = rest.get(fullQuery);
-//        System.out.println("Request response = " + resp.getStatusCode().value());
-//        final Reference<JSONObject> jsonResult;
-//        String respString = (String) resp.getBody();
-//
-//        if (resp.getStatusCode().value() == 200 && respString != null) {
-//            int begin = respString.indexOf("{");
-//            int end = respString.lastIndexOf("}") + 1;
-//            respString = respString.substring(begin, end);
-//            jsonResult.set(new JSONObject(respString));
-//        } else {
-//            getProperty("log").invokeMethod("error", new Object[]{"Response to mouse mine data request: " + resp.getStatusCode().value() + " restResponse.text= " + resp.getText()});
-//            return null;
-//        }
-//
-//        int start = DefaultGroovyMethods.asType(jsonResult.get().get("start"), (Class<Object>) Integer.class);
-//        int end = DefaultGroovyMethods.asType(jsonResult.get().get("end"), (Class<Object>) Integer.class);
-//        // TODO find how to get base pair length
-////        int length = (end - start) + 1
-//        // add variant/transcript relationship
-//        Variant variant = ((Class<Variant>) org.jax.mvarcore.Variant).findById(Long.parseLong(idsAndMostPathogenic.get(1)));
-//        // add gene/transcript relationship
-//        Gene gene;
-//        if (!idsAndMostPathogenic.get(0).equals("")) {
-//            gene = ((Gene) (Gene.createCriteria().get(new Closure<Criteria>(this, this) {
-//                public Criteria doCall(Object it) {
-//                    return eq("mgiId", idsAndMostPathogenic.get(0));
-//                }
-//
-//                public Criteria doCall() {
-//                    return doCall(null);
-//                }
-//
-//            })));
-//        } else {
-//            gene = ((Gene) (Gene.createCriteria().get(new Closure<Criteria>(this, this) {
-//                public Criteria doCall(Object it) {
-//                    return eq("ensemblGeneId", jsonResult.get().get("Parent"));
-//                }
-//
-//                public Criteria doCall() {
-//                    return doCall(null);
-//                }
-//
-//            })));
-//        }
-//
-//        TranscriptContainer container = new TranscriptContainer();
-//
-//
-//        TranscriptContainer transcript = container.setPrimaryIdentifier(id);
-//        container.setChromosome(jsonResult.get().get("seq_region_name")) container.setLocationStart(start);
-//        container.setLocationEnd(end) container.setEnsGeneIdentifier(jsonResult.get().get("Parent"));
-//        container.setVariant(variant) container.setGene(gene);
-//        container.setMostPathogenic(Boolean.valueOf(idsAndMostPathogenic.get(2)));
-//        return transcript;
-//    }
-//
-//    private void saveNewTranscripts(List<TranscriptContainer> listOfTranscripts, final int batchSize) throws SQLException {
-//        final List<TranscriptContainer> batchOfTranscripts = new ArrayList<TranscriptContainer>();
-//
-//        DefaultGroovyMethods.eachWithIndex(listOfTranscripts, new Closure<Object>(this, this) {
-//            public Object doCall(Object transcript, Object idx) {
-//                batchOfTranscripts.add((TranscriptContainer) transcript);
-//                if (idx > 1 && idx % batchSize == 0) {
-//                    batchInsertNewTranscriptsJDBC(batchOfTranscripts);
-//                    //clear batch lists
-//                    batchOfTranscripts.clear();
-//                    return cleanUpGorm();
-//                }
-//
-//            }
-//
-//        });
-//        //last batch
-//        if (listOfTranscripts.size() > 0) {
-//            batchInsertNewTranscriptsJDBC(batchOfTranscripts);
-//            batchOfTranscripts.clear();
-//            cleanUpGorm();
-//        }
-//
-//    }
-//
-//    private Integer[] batchInsertNewTranscriptsJDBC(List<TranscriptContainer> batchOfTranscripts) throws SQLException {
-//        PreparedStatement insertTranscripts = connection.prepareStatement(TRANSCRIPT_INSERT, Statement.RETURN_GENERATED_KEYS);
-//
-//        for (TranscriptContainer transcript : batchOfTranscripts) {
-//            insertTranscripts.setString(1, transcript.getPrimaryIdentifier());
-//            insertTranscripts.setInt(2, transcript.getLength());
-//            insertTranscripts.setString(3, transcript.getChromosome());
-//            insertTranscripts.setLong(4, transcript.getLocationStart());
-//            insertTranscripts.setLong(5, transcript.getLocationEnd());
-//            if (transcript.getMgiGeneIdentifier() != null)
-//                insertTranscripts.setString(6, transcript.getMgiGeneIdentifier());
-//            else insertTranscripts.setNull(6, Types.VARCHAR);
-//            insertTranscripts.setString(7, transcript.getEnsGeneIdentifier());
-//            insertTranscripts.addBatch();
-//        }
-//
-//        insertTranscripts.executeBatch();
-//        ResultSet transcriptsKeys = insertTranscripts.getGeneratedKeys();
-//
-//        PreparedStatement insertVariantsByTranscript = connection.prepareStatement(VARIANT_TRANSCRIPT_INSERT);
-//
-//        Long transcriptKey;
-//        for (TranscriptContainer transcript : batchOfTranscripts) {
-//            // add transcripts/variant relationship
-//            transcriptsKeys.next();
-//            transcriptKey = transcriptsKeys.getLong(1);
-//
-//            // we add the transcript / variant relationship
-//            insertVariantsByTranscript.setLong(1, transcript.getVariant().getId());
-//            insertVariantsByTranscript.setLong(2, transcriptKey);
-//            insertVariantsByTranscript.setBoolean(3, transcript.getMostPathogenic());
-//            insertVariantsByTranscript.addBatch();
-//
-//        }
-//
-//        return insertVariantsByTranscript.executeBatch();
-//
-//    }
 
     private void saveNewTranscriptsToFile(String strainName) {
         String currentPath = (new File(".")).getAbsolutePath();

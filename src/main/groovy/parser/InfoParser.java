@@ -1,6 +1,9 @@
 package parser;
 
 
+import org.eclipse.collections.impl.list.mutable.FastList;
+import org.eclipse.collections.impl.map.mutable.UnifiedMap;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -51,13 +54,13 @@ abstract public class InfoParser {
         if (infos.length > 1) {
             // split string by commas: a comma in the jannovar string separates multiple transcripts
             String[] functAnnotations = infos[1].split(";")[0].split(",");
-            List<Map<String, String>> listOfAnnMap = new ArrayList<>(functAnnotations.length);
+            List<Map<String, String>> listOfAnnMap = new FastList<>(functAnnotations.length);
             for (int i = 0; i < functAnnotations.length; i++) {
                 String[] infoAnnArray = functAnnotations[i].split("\\|", -1);
                 if (infoAnnArray.length != getInfoLength()) {
                     throw new IllegalArgumentException("Expecting " + getInfoId() + " identifier to have " + getInfoLength() + " blocks. Had " + infoAnnArray.length + " instead.");
                 }
-                Map<String, String> annMap = new HashMap<>();
+                Map<String, String> annMap = new UnifiedMap();
                 int index = 0;
                 for (String annotationKey:getAnnotationKeys()) {
                     annMap.put(annotationKey, infoAnnArray[index]);

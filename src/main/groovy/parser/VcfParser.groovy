@@ -12,15 +12,15 @@ class VcfParser {
 	/**
 	 * Parse a VCF file given a chrommosome and optionally a type.
 	 * @param chromosome can be 1, 2, 3, ...19, X, Y, MT
-	 * @param type can be SNP, DEL or INS
+	 * @param type can be SNP, DEL, INS or ALL
 	 * @param vcfFile
 	 * @return
 	 */
-    List<gngs.Variant> parseVcf(String chromosome, String type=null, File vcfFile) {
+    List<gngs.Variant> parseVcf(String chromosome, String type="ALL", File vcfFile) {
         List<gngs.Variant> varList
         try {
             VCF vcf = VCF.parse(vcfFile.getPath()) { v ->
-                ((v.chr == 'chr' + chromosome || v.chr == chromosome) && (type != null ? v.type == type : true))
+                ((v.chr == 'chr' + chromosome || v.chr == chromosome) && (type == "ALL" ? true : v.type == type))
             }
             varList = vcf.getVariants()
             println("parsed variants = " + vcf.getVariants().size())
