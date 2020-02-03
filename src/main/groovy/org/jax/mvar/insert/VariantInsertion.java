@@ -93,21 +93,23 @@ public class VariantInsertion {
      * @return name of strain
      */
     private String[] getStrainName(Connection connection, String strainName) throws SQLException {
-        Statement selectStrainId = connection.createStatement();
+        Statement selectStrainId = null;
         ResultSet result = null;
         String[] resultStrain;
         try {
+            selectStrainId = connection.createStatement();
             result = selectStrainId.executeQuery("SELECT * FROM strain WHERE name LIKE \'" + strainName + "\'");
             result.next();
             resultStrain = new String[2];
             resultStrain[0] = result.getString("name");
             resultStrain[1] = String.valueOf(result.getLong("id"));
-            result.close();
         } catch (SQLException exc) {
             throw exc;
         } finally {
             if (result != null)
                 result.close();
+            if (selectStrainId != null)
+                selectStrainId.close();
         }
         return resultStrain;
     }
