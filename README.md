@@ -16,10 +16,10 @@ This application is used to insert large amount of data to a MySQL database with
     The Executable can be run with the following command:
     
     <code>
-        java -jar mvar-insert-all.jar /path/to/data batch_size="integer" use_type=true|false
+        java -jar mvar-insert-all.jar /path/to/data batch_size="integer" type=SNP,DEL,INS
     </code>
     
-    Both "batch_size" and "use_type" are optional, and the corresponding default values are 1000 and false.
+    Both "batch_size" and "type" are optional, and the corresponding default values are 1000 and "ALL". The available types are "SNP", "DEL" and "INS". Multiple types can be added by separating them by commas ",".
     
     The command above requires Java 8 to be installed and possible the following JVM parameters to be set up depending on the size of the data to insert into the database.
     
