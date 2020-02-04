@@ -153,25 +153,23 @@ public class VariantInsertion {
     }
 
     private void insert(Connection connection, File vcfFile, VcfParser parser, String strainName, String[] types) throws Exception {
-        for (String type : types) {
-            for (String chr : MOUSE_CHROMOSOMES) {
-                final StopWatch stopWatch = new StopWatch();
-                stopWatch.start();
+        for (String chr : MOUSE_CHROMOSOMES) {
+            final StopWatch stopWatch = new StopWatch();
+            stopWatch.start();
 
-                List<Variant> vcfVariants = parser.parseVcf(chr, type, vcfFile);
-                int numOfVariants = vcfVariants.size();
-                System.out.println("CHR = " + chr + ", variant size= " + numOfVariants + ", type=" + type);
+            List<Variant> vcfVariants = parser.parseVcf(chr, types, vcfFile);
+            int numOfVariants = vcfVariants.size();
+            System.out.println("CHR = " + chr + ", variant size= " + numOfVariants);
 
-                //insert canonicals
-                int numOfExistingRecords = insertCanonVariantsBatch(connection, vcfVariants);
-                //insert variants, transcript, hgvs and relationships, and collect new transcripts not in DB
-                insertVariantsBatch(connection, vcfVariants, strainName);
-                System.out.println("CHR,SIZE,DURATION,DATE");
-                System.out.println(chr + "," + numOfVariants + "," + stopWatch + "," + new Date());
-                System.out.println("Number of existing records in canonicals: " + numOfExistingRecords);
-                stopWatch.reset();
-                stopWatch.start();
-            }
+            //insert canonicals
+            int numOfExistingRecords = insertCanonVariantsBatch(connection, vcfVariants);
+            //insert variants, transcript, hgvs and relationships, and collect new transcripts not in DB
+            insertVariantsBatch(connection, vcfVariants, strainName);
+            System.out.println("CHR,SIZE,DURATION,DATE");
+            System.out.println(chr + "," + numOfVariants + "," + stopWatch + "," + new Date());
+            System.out.println("Number of existing records in canonicals: " + numOfExistingRecords);
+            stopWatch.reset();
+            stopWatch.start();
         }
     }
 
