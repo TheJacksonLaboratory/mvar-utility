@@ -5,7 +5,6 @@ import org.apache.commons.lang3.time.StopWatch;
 import gngs.Variant;
 import org.eclipse.collections.api.map.primitive.MutableObjectLongMap;
 import org.eclipse.collections.impl.list.mutable.FastList;
-import org.eclipse.collections.impl.map.mutable.UnifiedMap;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 import org.eclipse.collections.impl.set.mutable.UnifiedSet;
 import parser.AnnotationParser;
@@ -38,11 +37,12 @@ public class VariantInsertion {
 
     /**
      * Loads a VCF file in the database
-     * @param vcfFile VCF file, can be gzipped or vcf format
+     *
+     * @param vcfFile     VCF file, can be gzipped or vcf format
      * @param batchNumber a batch number of 1000 is advised if enough memory (7G) is allocated to the JVM
      *                    Ultimately, the batch number depends on the File size and the JVM max and min memory
-     * @param types Can be ALL, SNP, DEL or INS. the VCF parser will iterate through the types of variants in order to minimise the
-     *                memory footprint in the heap (dividing by 3 since there are three type).
+     * @param types       Can be ALL, SNP, DEL or INS. the VCF parser will iterate through the types of variants in order to minimise the
+     *                    memory footprint in the heap (dividing by 3 since there are three type).
      */
     public void loadVCF(File vcfFile, int batchNumber, String[] types) {
         batchSize = batchNumber;
@@ -68,7 +68,7 @@ public class VariantInsertion {
         System.out.println("Vcf File: " + vcfFileName);
         // get Properties
         Config config = new Config();
-        
+
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
             // get strain id/name
             String[] strain = getStrainName(connection, strainName);
@@ -126,10 +126,10 @@ public class VariantInsertion {
      * - external ids
      * 5. construct search doc -- TODO: possible search docs for speed querying of data in site
      *
-     * @param connection jdbc connection 
+     * @param connection jdbc connection
      * @param vcfFile    file
      * @param strainName name of the strain
-     * @param types ALL, SNP, DEL and/or INS
+     * @param types      ALL, SNP, DEL and/or INS
      */
     private void persistData(Connection connection, File vcfFile, String strainName, String[] types) throws Exception {
         //persist data by chromosome -- TODO: check potential for multi-threaded process
@@ -177,7 +177,7 @@ public class VariantInsertion {
      * Enable/Disable ForeignKey checks, autocommit and unique checks
      *
      * @param connection jdbc connection
-     * @param isEnabled true or false
+     * @param isEnabled  true or false
      */
     private void innoDBSetOptions(Connection connection, boolean isEnabled) throws SQLException {
         int val = isEnabled ? 1 : 0;
@@ -191,7 +191,7 @@ public class VariantInsertion {
             uniqueChecksStmt.execute();
             foreignKeyCheckStmt.execute();
             if (!isEnabled) connection.commit();
-        } catch(SQLException exc) {
+        } catch (SQLException exc) {
             throw exc;
         } finally {
             if (foreignKeyCheckStmt != null)
@@ -205,7 +205,7 @@ public class VariantInsertion {
      * Insert Canonicals in batch
      *
      * @param connection jdbc connection
-     * @param varList parsed vcf
+     * @param varList    parsed vcf
      * @return numberOfExistingRecords
      */
     private int insertCanonVariantsBatch(Connection connection, List<Variant> varList) throws SQLException {
@@ -278,7 +278,7 @@ public class VariantInsertion {
             while (result.next()) {
                 resultMap.put(result.getString(columnName), result.getLong("ID"));
             }
-        } catch(SQLException exc) {
+        } catch (SQLException exc) {
             throw exc;
         } finally {
             if (result != null)
@@ -292,7 +292,7 @@ public class VariantInsertion {
     /**
      * Insert Canonicals using JDBC
      *
-     * @param connection jdbc connection
+     * @param connection              jdbc connection
      * @param batchOfVars
      * @param batchOfParentVariantRef
      * @return numberOfExistingRecordIds
@@ -300,7 +300,7 @@ public class VariantInsertion {
     private int batchInsertCannonVariantsJDBC(Connection connection, List<Variant> batchOfVars, List<String> batchOfParentVariantRef) throws SQLException {
         // set autocommit on
         connection.setAutoCommit(true);
-        MutableObjectLongMap found = selectAllFromColumnInList(connection,"variant_canon_identifier", "variant_ref_txt", batchOfParentVariantRef);
+        MutableObjectLongMap found = selectAllFromColumnInList(connection, "variant_canon_identifier", "variant_ref_txt", batchOfParentVariantRef);
         // set autocommit off
         connection.setAutoCommit(false);
         // insert canon variant
@@ -398,7 +398,7 @@ public class VariantInsertion {
     /**
      * Insert variants, and relationships using JDBC
      *
-     * @param connection jdbc connection
+     * @param connection           jdbc connection
      * @param batchOfVars
      * @param batchOfVariantRefTxt
      * @param batchOfGenes
@@ -540,7 +540,6 @@ public class VariantInsertion {
     }
 
     /**
-     *
      * @param connection
      * @param geneSynonymRecs
      * @param geneName
@@ -552,7 +551,7 @@ public class VariantInsertion {
         long synId = geneSynonymRecs.get(geneName);
         String selectGeneBySynId = "SELECT * FROM gene_synonym WHERE synonym_id=" + synId;
         Statement selectStmt = null;
-        ResultSet result =  null;
+        ResultSet result = null;
         try {
             selectStmt = connection.createStatement();
             result = selectStmt.executeQuery(selectGeneBySynId);
@@ -574,7 +573,7 @@ public class VariantInsertion {
         File file = new File(currentPath + "/" + strainName + "_NewTranscripts.txt");
         FileWriter fr = null;
         BufferedWriter br = null;
-        try{
+        try {
             fr = new FileWriter(file);
             br = new BufferedWriter(fr);
             br.write("transcript_id\tgene_name\tvariant_ref_txt\tis_most_pathogenic" + System.getProperty("line.separator"));
@@ -585,7 +584,7 @@ public class VariantInsertion {
         } catch (IOException e) {
             e.printStackTrace();
             System.err.println("Error writing new transcripts to file: " + e.getMessage());
-        }finally{
+        } finally {
             try {
                 br.close();
                 fr.close();
@@ -608,4 +607,138 @@ public class VariantInsertion {
         return inAssembly.equals(refAssembly);
     }
 
+    private final static String SELECT_COUNT = "SELECT COUNT(*) from variant_transcript_temp;";
+    private final static String SELECT_VARIANT_TRANSCRIPT_TEMP = "SELECT id, transcript_ids FROM variant_transcript_temp WHERE id BETWEEN ? AND ?;";
+    private final static String INSERT_VARIANT_TRANSCRIPTS = "INSERT INTO variant_transcript (variant_transcripts_id, transcript_id, most_pathogenic) VALUES (?,?,?)";
+
+    /**
+     * Insert variant/transcripts relationships given the variant_transcript_temp table
+     *
+     * @param batchSize
+     */
+    public void insertVariantTranscriptRelationships(int batchSize) {
+        System.out.println("Inserting Variant Transcript relationships...");
+        final StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+        // get Properties
+        Config config = new Config();
+
+        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
+            PreparedStatement countStmt = null;
+            ResultSet resultCount = null;
+            int numberOfRecords = 0;
+            try {
+                countStmt = connection.prepareStatement(SELECT_COUNT);
+                resultCount = countStmt.executeQuery();
+                if (resultCount.next()) {
+                    numberOfRecords = resultCount.getInt(1);
+                    System.out.println("NumberOfRows = " + numberOfRecords);
+                } else {
+                    System.out.println("error: could not get the record counts");
+                }
+            } catch (SQLException exc) {
+                throw exc;
+            } finally {
+                if (resultCount != null)
+                    resultCount.close();
+                if (countStmt != null)
+                    countStmt.close();
+            }
+            System.out.println("Batch size is " + batchSize);
+            connection.setAutoCommit(false);
+            int selectIdx = 1;
+            long start = 0, elapsedTimeMillis;
+            Map<Long, Set<Long>> variantIdTranscriptIdsMap;
+            for (int i = 0; i < numberOfRecords; i++) {
+                if (i > 1 && i % batchSize == 0) {
+                    start = System.currentTimeMillis();
+                    variantIdTranscriptIdsMap = selectVariantTranscriptsFromTemp(connection, selectIdx, selectIdx + batchSize - 1);
+
+                    selectIdx = selectIdx + batchSize;
+                    insertVariantTranscriptInBatch(connection, variantIdTranscriptIdsMap);
+                    variantIdTranscriptIdsMap.clear();
+                    elapsedTimeMillis = System.currentTimeMillis() - start;
+                    System.out.println("Progress: " + i + " of " + numberOfRecords + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1));
+                }
+            }
+            // last batch
+            start = System.currentTimeMillis();
+            variantIdTranscriptIdsMap = selectVariantTranscriptsFromTemp(connection, selectIdx, numberOfRecords);
+            if (variantIdTranscriptIdsMap.size() > 0) {
+                insertVariantTranscriptInBatch(connection, variantIdTranscriptIdsMap);
+                variantIdTranscriptIdsMap.clear();
+                elapsedTimeMillis = System.currentTimeMillis() - start;
+                System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords);
+            }
+
+            // time
+            System.out.println("Variant/Transcripts relationships inserted in " + stopWatch);
+        } catch (SQLException exc) {
+            System.err.println(exc.getMessage());
+        }
+    }
+
+    private Map<Long, Set<Long>> selectVariantTranscriptsFromTemp(Connection connection, int start, int stop) throws SQLException {
+        PreparedStatement selectStmt = null;
+        ResultSet result = null;
+        Map<Long, Set<Long>> variantIdTranscriptIdsMap = new HashMap();
+
+        try {
+            selectStmt = connection.prepareStatement(SELECT_VARIANT_TRANSCRIPT_TEMP);
+            selectStmt.setInt(1, start);
+            selectStmt.setInt(2, stop);
+            result = selectStmt.executeQuery();
+            while (result.next()) {
+                // ... get column values from this record
+                long variantId = result.getLong("id");
+                String[] transcripts = result.getString("transcript_ids").split(",");
+                Set<Long> transcriptIdsSet = new LinkedHashSet<>();
+                for (String transcriptId : transcripts) {
+                    if (!transcriptId.equals("null") && !transcriptId.equals("0"))
+                        transcriptIdsSet.add(Long.valueOf(transcriptId));
+                }
+                variantIdTranscriptIdsMap.put(variantId, transcriptIdsSet);
+            }
+        } catch (SQLException exc) {
+            throw exc;
+        } finally {
+            if (result != null)
+                result.close();
+            if (selectStmt != null)
+                selectStmt.close();
+        }
+        return variantIdTranscriptIdsMap;
+    }
+
+    private void insertVariantTranscriptInBatch(Connection connection, Map<Long, Set<Long>> variantIdTranscriptIdsMap) throws SQLException {
+        // insert in variant transcript relationship
+        PreparedStatement insertVariantTranscripts = null;
+
+        try {
+            insertVariantTranscripts = connection.prepareStatement(INSERT_VARIANT_TRANSCRIPTS);
+
+            connection.setAutoCommit(false);
+            for (Map.Entry<Long, Set<Long>> entry : variantIdTranscriptIdsMap.entrySet()) {
+                long variantId = entry.getKey();
+                Set<Long> transcriptIds = entry.getValue();
+
+                Iterator<Long> itr = transcriptIds.iterator();
+                int idx = 0;
+                while (itr.hasNext()) {
+                    insertVariantTranscripts.setLong(1, variantId);
+                    insertVariantTranscripts.setLong(2, itr.next());
+                    insertVariantTranscripts.setBoolean(3, idx == 0);
+                    insertVariantTranscripts.addBatch();
+                    idx++;
+                }
+            }
+            insertVariantTranscripts.executeBatch();
+            connection.commit();
+        } catch (SQLException exc) {
+            throw exc;
+        } finally {
+            if (insertVariantTranscripts != null)
+                insertVariantTranscripts.close();
+        }
+    }
 }

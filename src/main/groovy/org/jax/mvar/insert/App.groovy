@@ -9,32 +9,41 @@ class App {
 
     private static def cmdArgsParser(String[] args) {
         def arguments = [:]
-        if (args != null && (args.length == 1 || args.length == 2 || args.length == 3)) {
-            arguments["data_path"] = args[0]
-            arguments["batch_size"] = 1000
-            arguments["type"] = ["ALL"]
-        }
-        if (args != null && (args.length == 2 || args.length == 3)) {
-            for (int i = 1; i <= args.length - 1; i++) {
-                String[] attribute = args[i].split("=")
-                if (attribute[0] == "batch_size") {
-                    arguments["batch_size"] = attribute[1].toInteger()
-                } else if (attribute[0] == "type") {
-                    String[] types
-                    if (attribute[1].contains(',')) {
-                        types = attribute[1].split(',')
-                        for (String type : types) {
-                            if (!VARIANT_TYPES.contains(type))
+        if (args != null && args[0] == "REL") {
+            arguments["REL"] = true
+            arguments["batch_size"] = 100000
+            if (args.length > 1) {
+                arguments["batch_size"] = Integer.valueOf(args[1])
+            }
+        } else {
+            if (args != null && (args.length == 1 || args.length == 2 || args.length == 3)) {
+                arguments["data_path"] = args[0]
+                arguments["batch_size"] = 1000
+                arguments["type"] = ["ALL"]
+                arguments["REL"] = false
+            }
+            if (args != null && (args.length == 2 || args.length == 3)) {
+                for (int i = 1; i <= args.length - 1; i++) {
+                    String[] attribute = args[i].split("=")
+                    if (attribute[0] == "batch_size") {
+                        arguments["batch_size"] = attribute[1].toInteger()
+                    } else if (attribute[0] == "type") {
+                        String[] types
+                        if (attribute[1].contains(',')) {
+                            types = attribute[1].split(',')
+                            for (String type : types) {
+                                if (!VARIANT_TYPES.contains(type))
+                                    throw new Exception("The type argument can only be one of the following : " + VARIANT_TYPES.toString())
+                            }
+                            arguments["type"] = types
+                        } else {
+                            if (!VARIANT_TYPES.contains(attribute[1]))
                                 throw new Exception("The type argument can only be one of the following : " + VARIANT_TYPES.toString())
+                            arguments["type"] = [attribute[1]] as String[]
                         }
-                        arguments["type"] = types
                     } else {
-                        if (!VARIANT_TYPES.contains(attribute[1]))
-                            throw new Exception("The type argument can only be one of the following : " + VARIANT_TYPES.toString())
-                        arguments["type"] = [attribute[1]] as String[]
+                        throw new Exception("The second argument need to be \'batch_size=\' or \'type=\'")
                     }
-                } else {
-                    throw new Exception("The second argument need to be \'batch_size=\' or \'type=\'")
                 }
             }
         }
@@ -48,22 +57,27 @@ class App {
         VariantInsertion insertService = new VariantInsertion();
         def arguments = cmdArgsParser(args)
         try {
-            String path = arguments["data_path"]
             Integer batchSize = arguments["batch_size"]
-            String[] type = arguments["type"]
-            File f = new File(path)
-            assert f != null
-            if (f.isDirectory()) {
-                File[] files = new File(path).listFiles();
-                assert files != null
-                for (File file : files) {
-                    if (file.isFile() && (file.getName().endsWith(".gz") || (file.getName().endsWith(".vcf"))))
-                        insertService.loadVCF(file, batchSize, type)
-                }
-            } else if (f.isFile() && (f.getName().endsWith(".gz") || (f.getName().endsWith(".vcf")))) {
-                insertService.loadVCF(f, batchSize, type);
+            if (arguments["REL"]) {
+                // if REL (=relationship) then we insert all the variant_transcript relationships from the temp table created
+                insertService.insertVariantTranscriptRelationships(batchSize)
             } else {
-                throw new Exception("Could not find file or directory : " + f.getPath())
+                String path = arguments["data_path"]
+                String[] type = arguments["type"]
+                File f = new File(path)
+                assert f != null
+                if (f.isDirectory()) {
+                    File[] files = new File(path).listFiles();
+                    assert files != null
+                    for (File file : files) {
+                        if (file.isFile() && (file.getName().endsWith(".gz") || (file.getName().endsWith(".vcf"))))
+                            insertService.loadVCF(file, batchSize, type)
+                    }
+                } else if (f.isFile() && (f.getName().endsWith(".gz") || (f.getName().endsWith(".vcf")))) {
+                    insertService.loadVCF(f, batchSize, type);
+                } else {
+                    throw new Exception("Could not find file or directory : " + f.getPath())
+                }
             }
         } catch (Exception exc) {
             System.out.println(Arrays.toString(exc.getStackTrace()));
