@@ -615,8 +615,9 @@ public class VariantInsertion {
      * Insert variant/transcripts relationships given the variant_transcript_temp table
      *
      * @param batchSize
+     * @param startId in case a process needs to be re-run from a certain variant_id (instead of starting from the beginning all over again
      */
-    public void insertVariantTranscriptRelationships(int batchSize) {
+    public void insertVariantTranscriptRelationships(int batchSize, int startId) {
         System.out.println("Inserting Variant Transcript relationships...");
         final StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -646,11 +647,11 @@ public class VariantInsertion {
             }
             System.out.println("Batch size is " + batchSize);
             connection.setAutoCommit(false);
-            int selectIdx = 1;
-            long start = 0, elapsedTimeMillis;
+            int selectIdx = startId;
+            long start, elapsedTimeMillis;
             Map<Long, Set<Long>> variantIdTranscriptIdsMap;
-            for (int i = 0; i < numberOfRecords; i++) {
-                if (i > 1 && i % batchSize == 0) {
+            for (int i = startId - 1; i < numberOfRecords; i++) {
+                if (i > startId && i % batchSize == 0) {
                     start = System.currentTimeMillis();
                     variantIdTranscriptIdsMap = selectVariantTranscriptsFromTemp(connection, selectIdx, selectIdx + batchSize - 1);
 
@@ -670,7 +671,6 @@ public class VariantInsertion {
                 elapsedTimeMillis = System.currentTimeMillis() - start;
                 System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords);
             }
-
             // time
             System.out.println("Variant/Transcripts relationships inserted in " + stopWatch);
         } catch (SQLException exc) {

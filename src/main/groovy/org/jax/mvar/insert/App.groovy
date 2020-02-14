@@ -12,8 +12,15 @@ class App {
         if (args != null && args[0] == "REL") {
             arguments["REL"] = true
             arguments["batch_size"] = 100000
+            arguments["start_id"] = 1
             if (args.length > 1) {
-                arguments["batch_size"] = Integer.valueOf(args[1])
+                for (int i = 1; i <= args.length - 1; i++) {
+                    String[] attribute = args[i].split("=")
+                    if (attribute[0] == "batch_size")
+                        arguments["batch_size"] = attribute[1].toInteger()
+                    if (attribute[0] == "start_id")
+                        arguments["start_id"] = attribute[1].toInteger()
+                }
             }
         } else {
             if (args != null && (args.length == 1 || args.length == 2 || args.length == 3)) {
@@ -58,9 +65,10 @@ class App {
         def arguments = cmdArgsParser(args)
         try {
             Integer batchSize = arguments["batch_size"]
+            Integer startId = arguments["start_id"]
             if (arguments["REL"]) {
                 // if REL (=relationship) then we insert all the variant_transcript relationships from the temp table created
-                insertService.insertVariantTranscriptRelationships(batchSize)
+                insertService.insertVariantTranscriptRelationships(batchSize, startId)
             } else {
                 String path = arguments["data_path"]
                 String[] type = arguments["type"]

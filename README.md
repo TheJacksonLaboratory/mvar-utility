@@ -10,9 +10,10 @@ This application is used to insert large amount of data to a MySQL database with
        ./gradlew shadowJar
     </code>
 
-
 2. Run executable
-
+    
+    2.1 Insert variation file(s)
+    
     The Executable can be run with the following command:
     
     <code>
@@ -38,3 +39,13 @@ This application is used to insert large amount of data to a MySQL database with
         -Dcom.sun.management.jmxremote.port=5000 
         -Djava.rmi.server.hostname=mvr-test01 
     </code>
+    
+    2.2 Insert variant-transcript relationships
+    
+    The executable can be run with the following arguments in order to insert the variant/transcript relationships.
+    
+    <code>
+        java -jar mvar-insert-all.jar /path/to/data REL batch_size="integer" start_id="integer"
+    </code>
+    
+     where batch_size is optional (1000000 by default) and start_id is optional (1 by default). 
