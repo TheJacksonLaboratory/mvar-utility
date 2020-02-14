@@ -654,11 +654,11 @@ public class VariantInsertion {
                     start = System.currentTimeMillis();
                     variantIdTranscriptIdsMap = selectVariantTranscriptsFromTemp(connection, selectIdx, selectIdx + batchSize - 1);
 
-                    selectIdx = selectIdx + batchSize;
                     insertVariantTranscriptInBatch(connection, variantIdTranscriptIdsMap);
                     variantIdTranscriptIdsMap.clear();
                     elapsedTimeMillis = System.currentTimeMillis() - start;
                     System.out.println("Progress: " + i + " of " + numberOfRecords + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1));
+                    selectIdx = selectIdx + batchSize;
                 }
             }
             // last batch
@@ -674,7 +674,7 @@ public class VariantInsertion {
             // time
             System.out.println("Variant/Transcripts relationships inserted in " + stopWatch);
         } catch (SQLException exc) {
-            System.err.println(exc.getMessage());
+            exc.printStackTrace();
         }
     }
 
