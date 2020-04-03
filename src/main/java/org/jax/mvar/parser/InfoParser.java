@@ -1,4 +1,4 @@
-package parser;
+package org.jax.mvar.parser;
 
 
 import org.eclipse.collections.impl.list.mutable.FastList;
