@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
-class Config {
+public class Config {
 
     private String url;
     private String user;

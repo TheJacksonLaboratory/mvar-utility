@@ -51,7 +51,7 @@ public class VariantStrainInsertion {
             VariantInsertion.innoDBSetOptions(connection, false);
             int selectIdx = startId;
             long start, elapsedTimeMillis;
-            Map<Long, Genotype> variantIdGenotypeMap;
+            Map<Integer, String[]> variantIdGenotypeMap;
             for (int i = startId - 1; i < numberOfRecords; i++) {
                 if (i > startId && i % batchSize == 0) {
                     start = System.currentTimeMillis();
@@ -82,10 +82,11 @@ public class VariantStrainInsertion {
         }
     }
 
-    private static Map<Long, Genotype> selectGenotypeFromTemp(Connection connection, int start, int stop) throws SQLException {
+    private static Map<Integer, String[]> selectGenotypeFromTemp(Connection connection, int start, int stop) throws SQLException {
         PreparedStatement selectStmt = null;
         ResultSet result = null;
-        Map<Long, Genotype> variantIdGenotypeMap = new HashMap();
+//        Map<Integer, Genotype> variantIdGenotypeMap = new HashMap();
+        Map<Integer, String[]> variantIdGenotypeMap = new HashMap();
 
         try {
             selectStmt = connection.prepareStatement(SELECT_GENOTYPE_TEMP);
@@ -94,11 +95,11 @@ public class VariantStrainInsertion {
             result = selectStmt.executeQuery();
             while (result.next()) {
                 // ... get column values from this record
-                long variantId = result.getLong("id");
-                String format = result.getString("format");
+                int variantId = result.getInt("id");
+//                String format = result.getString("format");
                 String[] genotypes = result.getString("genotype_data").split("\t");
-
-                variantIdGenotypeMap.put(variantId, new Genotype(format, genotypes));
+//                variantIdGenotypeMap.put(variantId, new Genotype(format, genotypes));
+                variantIdGenotypeMap.put(variantId, genotypes);
             }
         } catch (SQLException exc) {
             throw exc;
@@ -111,43 +112,43 @@ public class VariantStrainInsertion {
         return variantIdGenotypeMap;
     }
 
-    private static void insertVariantStrainInBatch(Connection connection, Map<Long, Genotype> variantIdGenotypeMap) throws SQLException {
+    private static void insertVariantStrainInBatch(Connection connection, Map<Integer, String[]> variantIdGenotypeMap) throws SQLException {
         // insert in variant transcript relationship
         PreparedStatement insertVariantStrain = null;
-        PreparedStatement insertGenotype = null;
+//        PreparedStatement insertGenotype = null;
 
         try {
             insertVariantStrain = connection.prepareStatement(INSERT_VARIANT_STRAIN);
-            insertGenotype = connection.prepareStatement(INSERT_GENOTYPE);
+//            insertGenotype = connection.prepareStatement(INSERT_GENOTYPE);
 
             connection.setAutoCommit(false);
-            for (Map.Entry<Long, Genotype> entry : variantIdGenotypeMap.entrySet()) {
-                long variantId = entry.getKey();
-                Genotype geno = entry.getValue();
-                String format = geno.getFormat();
-                String[] genotypeData = geno.getGenotype();
-                for (int i = 0; i < genotypeData.length; i ++) {
+            for (Map.Entry<Integer, String[]> entry : variantIdGenotypeMap.entrySet()) {
+                int variantId = entry.getKey();
+                String[] geno = entry.getValue();
+//                String format = geno.getFormat();
+//                String[] genotypeData = geno.getGenotype();
+                for (int i = 0; i < geno.length; i ++) {
                     // if there is a genotype data for the strain
-                    if (!genotypeData[i].startsWith("./.")) {
-                        insertGenotype.setString(1, format);
-                        insertGenotype.setString(2, genotypeData[i]);
-                        insertGenotype.setLong(3, variantId);
-                        insertGenotype.setLong(4, STRAIN_IDS[i]);
-                        insertGenotype.addBatch();
-                        insertVariantStrain.setLong(1, variantId);
-                        insertVariantStrain.setLong(2, STRAIN_IDS[i]);
+                    if (!geno[i].startsWith("./.")) {
+//                        insertGenotype.setString(1, format);
+//                        insertGenotype.setString(2, genotypeData[i]);
+//                        insertGenotype.setInt(3, variantId);
+//                        insertGenotype.setInt(4, STRAIN_IDS[i]);
+//                        insertGenotype.addBatch();
+                        insertVariantStrain.setInt(1, variantId);
+                        insertVariantStrain.setInt(2, STRAIN_IDS[i]);
                         insertVariantStrain.addBatch();
                     }
                 }
             }
-            insertGenotype.executeBatch();
+//            insertGenotype.executeBatch();
             insertVariantStrain.executeBatch();
             connection.commit();
         } catch (SQLException exc) {
             throw exc;
         } finally {
-            if (insertGenotype != null)
-                insertGenotype.close();
+//            if (insertGenotype != null)
+//                insertGenotype.close();
             if (insertVariantStrain != null)
                 insertVariantStrain.close();
         }

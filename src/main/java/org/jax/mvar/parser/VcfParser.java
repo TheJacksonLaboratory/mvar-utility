@@ -7,7 +7,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 
 /**
- * Class that uses the gngs.VCF parser
+ * Class used to parse a VCF file line by line
  * 
  *
  */
@@ -16,6 +16,7 @@ public class VcfParser {
     /**
      * Parse a VCF file given a chromosome and optionally a type.
      * @param vcfFile
+     * @param strainList
      * @return
      */
     public static LinkedHashMap<String, Variant> parseVcf(File vcfFile, String[] strainList) throws Exception {
@@ -28,7 +29,6 @@ public class VcfParser {
             // Create the object of BufferedReader object
             BufferedReader br = new BufferedReader(instrm);
         ) {
-//            while((strLine = br.readLine()) != null) {
             String next, strLine = br.readLine();
             int idx = 0;
             // load data in to map
@@ -36,10 +36,18 @@ public class VcfParser {
                 last = ((next = br.readLine()) == null);
                 if (!strLine.startsWith("#")) {
                     String[] columns = strLine.split("\t");
-                    String[] genotypes = Arrays.copyOfRange(columns, 9, columns.length);
-                    String genotypeData = String.join("\t", genotypes);
-                    Variant var = new Variant(columns[0], columns[1], columns[2], columns[3],
-                            columns[4], columns[5], columns[6], columns[7], columns[8], genotypeData, strainList);
+                    Variant var;
+                    if (columns.length > 8) {
+                        String[] genotypes = Arrays.copyOfRange(columns, 9, columns.length);
+                        String genotypeData = String.join("\t", genotypes);
+                        var = new Variant(columns[0], columns[1], columns[2], columns[3],
+                                columns[4], columns[5], columns[6], columns[7], columns[8], genotypeData, strainList);
+                    } else {
+                        var = new Variant(columns[0], columns[1], columns[2], columns[3],
+                                columns[4], columns[5], columns[6], columns[7], null, null, null);
+                    }
+                    if (variations.containsKey(var.getVariantRefTxt()))
+                        System.out.println(var.getVariantRefTxt() + " already exists and will be overridden.");
                     variations.put(var.getVariantRefTxt(), var);
                     idx++;
                 }

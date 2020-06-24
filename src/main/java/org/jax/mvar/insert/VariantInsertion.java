@@ -54,17 +54,6 @@ public class VariantInsertion {
     }
 
     /**
-     * Returns a string of comma separated strain names given the genotype data given
-     * If the genotype data if of type ./. then that strain will be absent from the result string.
-     * @param genotypeDataString
-     * @return
-     */
-    private String getConcatenatedStrainNames(String genotypeDataString) {
-
-        return "";
-    }
-
-    /**
      * 1. parse the vcf -- by chromosome ,
      * 2. Persist canonicals
      * 3. persist variants
