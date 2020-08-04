@@ -1,3 +1,5 @@
+### Deprecated - replaced by mvar-utlity
+
 ## MVAR-insert
 
 This application is used to insert large amount of data to a MySQL database with the schema (in ~resources/mvar_core_schema.xml).
