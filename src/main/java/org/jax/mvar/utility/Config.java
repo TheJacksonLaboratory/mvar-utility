@@ -1,4 +1,4 @@
-package org.jax.mvar.insert;
+package org.jax.mvar.utility;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -1,8 +1,8 @@
-package org.jax.mvar.parser;
+package org.jax.mvar.utility.parser;
 
 import org.apache.commons.lang3.time.StopWatch;
-import org.jax.mvar.insert.Config;
-import org.jax.mvar.insert.Variant;
+import org.jax.mvar.utility.Config;
+import org.jax.mvar.utility.model.Variant;
 
 import java.io.BufferedWriter;
 import java.io.File;

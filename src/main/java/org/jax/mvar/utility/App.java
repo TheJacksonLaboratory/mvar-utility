@@ -1,6 +1,11 @@
-package org.jax.mvar.insert;
+package org.jax.mvar.utility;
 
-import org.jax.mvar.parser.MGIChecker;
+import org.jax.mvar.utility.converter.VCFConverter;
+import org.jax.mvar.utility.insert.VariantInsertion;
+import org.jax.mvar.utility.insert.VariantStrainInsertion;
+import org.jax.mvar.utility.insert.VariantTranscriptInsertion;
+import org.jax.mvar.utility.model.Variant;
+import org.jax.mvar.utility.parser.MGIChecker;
 
 import java.io.*;
 import java.util.*;
@@ -29,11 +34,14 @@ public class App {
         Map<String, Object> arguments = new LinkedHashMap();
 
         if (args != null) {
-            if (args[0].equals("MGI")) {
+            if (args[0].equals("MGI") || args[0].equals("CONVERT")) {
                 if (args.length < 2) {
                     System.out.println("Missing data_path argument");
                 } else {
-                    arguments.put("MGI", true);
+                    if (args[0].equals("MGI"))
+                        arguments.put("MGI", true);
+                    else if (args[0].equals("CONVERT"))
+                        arguments.put("CONVERT", true);
                     arguments.put("data_path", args[1]);
                 }
             } else {
@@ -71,6 +79,18 @@ public class App {
                 // check MGI variants in DB
                 MGIChecker checker = new MGIChecker();
                 checker.loadVCF(new File((String)arguments.get("data_path")));
+            } else if (keys.contains("CONVERT")) {
+                String filePath = (String) arguments.get("data_path");
+                try {
+                    // Read variant csv file
+                    LinkedHashMap<String, Variant> variants = VCFConverter.parseCSV(filePath, ",");
+
+                    //write loaded variants into vcf file
+                    VCFConverter.writeVCF(variants, filePath + ".vcf");
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                }
+
             } else {
                 int batchSize = (int)arguments.get("batch_size");
                 // if REL (=relationship) then we insert all the variant_transcript relationships from the temp table created

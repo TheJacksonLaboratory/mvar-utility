@@ -1,11 +1,9 @@
-package org.jax.mvar.parser;
+package org.jax.mvar.utility.parser;
 
 
 import org.eclipse.collections.impl.list.mutable.FastList;
 import org.eclipse.collections.impl.map.mutable.UnifiedMap;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 

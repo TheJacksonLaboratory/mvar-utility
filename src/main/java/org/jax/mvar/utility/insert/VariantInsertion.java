@@ -1,13 +1,15 @@
-package org.jax.mvar.insert;
+package org.jax.mvar.utility.insert;
 
 import org.apache.commons.lang3.time.StopWatch;
 
 import org.eclipse.collections.api.map.primitive.MutableObjectLongMap;
 import org.eclipse.collections.impl.list.mutable.FastList;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
-import org.jax.mvar.parser.AnnotationParser;
-import org.jax.mvar.parser.InfoParser;
-import org.jax.mvar.parser.VcfParser;
+import org.jax.mvar.utility.Config;
+import org.jax.mvar.utility.model.Variant;
+import org.jax.mvar.utility.parser.AnnotationParser;
+import org.jax.mvar.utility.parser.InfoParser;
+import org.jax.mvar.utility.parser.VcfParser;
 
 import java.io.*;
 import java.sql.*;

@@ -42,5 +42,5 @@ dependencies {
 
 application {
     // Define the main class for the application.
-    mainClassName = 'org.jax.mvar.insert.App'
+    mainClassName = 'org.jax.mvar.utility.App'
 }

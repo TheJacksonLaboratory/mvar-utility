@@ -1,4 +1,4 @@
-package org.jax.mvar.insert;
+package org.jax.mvar.utility.model;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,6 +18,7 @@ public class Variant {
     String annotation;
     String variantRefTxt;
     Map strains;
+    String[] strainList;
 
     public Variant(String chr, String pos, String id, String ref, String alt, String qual,
                    String filter, String info, String format, String genotypeData, String[] strainList) throws Exception {
@@ -34,6 +35,7 @@ public class Variant {
         this.annotation = getAnnotation(this.info.split(";"), "ANN");
         this.variantRefTxt = chr.concat("_").concat(pos).concat("_").concat(ref).concat("_").concat(alt);
         setType(ref, alt);
+        this.strainList = strainList;
 //        setStrains(genotypeData, strainList);
     }
 
@@ -145,5 +147,9 @@ public class Variant {
      */
     public Map getStrains() {
         return strains;
+    }
+
+    public String[] getStrainList() {
+        return this.strainList;
     }
 }

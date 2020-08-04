@@ -1,6 +1,7 @@
-package org.jax.mvar.insert;
+package org.jax.mvar.utility.insert;
 
 import org.apache.commons.lang3.time.StopWatch;
+import org.jax.mvar.utility.Config;
 
 import java.sql.*;
 import java.util.*;

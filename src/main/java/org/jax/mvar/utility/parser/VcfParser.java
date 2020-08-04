@@ -1,6 +1,6 @@
-package org.jax.mvar.parser;
+package org.jax.mvar.utility.parser;
 
-import org.jax.mvar.insert.Variant;
+import org.jax.mvar.utility.model.Variant;
 
 import java.io.*;
 import java.util.Arrays;

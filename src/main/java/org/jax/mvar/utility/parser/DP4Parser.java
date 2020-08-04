@@ -1,4 +1,4 @@
-package org.jax.mvar.parser;
+package org.jax.mvar.utility.parser;
 
 import java.util.*;
 

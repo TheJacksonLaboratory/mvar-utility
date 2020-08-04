@@ -1,4 +1,4 @@
-package org.jax.mvar.insert;
+package org.jax.mvar.utility.model;
 
 public class Genotype {
     private String format;
