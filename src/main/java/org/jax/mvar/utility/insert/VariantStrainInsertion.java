@@ -11,7 +11,7 @@ public class VariantStrainInsertion {
     private final static String SELECT_COUNT = "SELECT COUNT(*) from genotype_temp;";
     private final static String SELECT_GENOTYPE_TEMP = "SELECT id, format, genotype_data FROM genotype_temp WHERE id BETWEEN ? AND ?";
     private final static String INSERT_GENOTYPE = "INSERT INTO genotype (format, data, variant_id, strain_id) VALUES (?, ?, ?, ?)";
-    private final static String INSERT_VARIANT_STRAIN = "INSERT INTO variant_strain (variant_strains_id, strain_id) VALUES (?, ?)";
+    private final static String INSERT_VARIANT_STRAIN = "INSERT INTO variant_strain (variant_strains_id, strain_id, genotype) VALUES (?, ?, ?)";
     private final static int[] STRAIN_IDS = { 283, 2, 661, 4, 3, 5, 6729, 1236, 179, 6, 1569, 8, 10119, 199, 1902, 9, 10, 68, 11, 12, 2184, 43541, 7568, 9972, 862, 13, 6838, 14, 867, 15, 2008, 1214, 16, 48883, 48884, 888, 2362, 896, 863, 19, 2361, 17, 31346 };
     private final static String[] STRAIN_LIST = {"129P2/OlaHsd", "129S1/SvImJ", "129S5/SvEvBrd", "AKR/J", "A/J", "BALB/cJ", "BTBR T<+> Itpr3<tf>/J", "BUB/BnJ", "C3H/HeH", "C3H/HeJ", "C57BL/10J", "C57BL/6NJ", "C57BR/cdJ", "C57L/J", "C58/J", "CAST/EiJ", "CBA/J", "DBA/1J", "DBA/2J", "FVB/NJ", "I/LnJ", "JF1/MsJ", "KK/HlJ", "LEWES/EiJ", "LG/J", "LP/J", "MOLF/EiJ", "NOD/ShiLtJ", "NZB/BlNJ", "NZO/HlLtJ", "NZW/LacJ", "PL/J", "PWK/PhJ", "QSi3", "QSi5", "RF/J", "SEA/GnJ", "SJL/J", "SM/J", "SPRET/EiJ", "ST/bJ", "WSB/EiJ", "ZALENDE/EiJ" };
 
@@ -130,7 +130,7 @@ public class VariantStrainInsertion {
 //                String[] genotypeData = geno.getGenotype();
                 for (int i = 0; i < geno.length; i ++) {
                     // if there is a genotype data for the strain
-                    if (!geno[i].startsWith("./.")) {
+                    if (!geno[i].startsWith("./.") && !geno[i].startsWith("0/0")) { // geno[i].contains("1") || geno[i].contains("2") || geno[i].contains("3")
 //                        insertGenotype.setString(1, format);
 //                        insertGenotype.setString(2, genotypeData[i]);
 //                        insertGenotype.setInt(3, variantId);
@@ -138,6 +138,7 @@ public class VariantStrainInsertion {
 //                        insertGenotype.addBatch();
                         insertVariantStrain.setInt(1, variantId);
                         insertVariantStrain.setInt(2, STRAIN_IDS[i]);
+                        insertVariantStrain.setString(3, geno[i]);
                         insertVariantStrain.addBatch();
                     }
                 }

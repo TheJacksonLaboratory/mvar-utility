@@ -75,11 +75,11 @@ public class App {
         Map<String, Object> arguments = cmdArgsParser(args);
         try {
             Set<String> keys = arguments.keySet();
-            if (keys.contains("MGI")) {
+            if (keys.contains("MGI")) {         // Check MGI vcf data against the MVAR database for duplicates
                 // check MGI variants in DB
                 MGIChecker checker = new MGIChecker();
-                checker.loadVCF(new File((String)arguments.get("data_path")));
-            } else if (keys.contains("CONVERT")) {
+                checker.loadVCF(new File((String) arguments.get("data_path")));
+            } else if (keys.contains("CONVERT")) {   // Convert CSV to VCF format
                 String filePath = (String) arguments.get("data_path");
                 try {
                     // Read variant csv file
@@ -91,7 +91,9 @@ public class App {
                     System.out.println(e.getMessage());
                 }
 
-            } else {
+            } else if (keys.contains("MOUSEMINE")){       // inserts/updates the strains, transcripts, genes, alleles from mousemine into the MVAR DB
+
+            }else {      // insert new variants into DB (relationships, genotype data or variants
                 int batchSize = (int)arguments.get("batch_size");
                 // if REL (=relationship) then we insert all the variant_transcript relationships from the temp table created
                 if ((boolean)arguments.get("REL") && !(boolean)arguments.get("GENO")) {
