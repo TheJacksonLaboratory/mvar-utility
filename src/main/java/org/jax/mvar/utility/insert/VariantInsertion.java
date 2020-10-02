@@ -25,7 +25,7 @@ public class VariantInsertion {
     private final static String[] STRAIN_LIST = { "129P2/OlaHsd", "129S1/SvImJ", "129S5/SvEvBrd", "AKR/J", "A/J",  "BALB/cJ", "BTBR T<+> Itpr3<tf>/J", "BUB/BnJ", "C3H/HeH", "C3H/HeJ", "C57BL/10J", "C57BL/6NJ", "C57BR/cdJ", "C57L/J", "C58/J", "CAST/EiJ", "CBA/J", "DBA/1J", "DBA/2J", "FVB/NJ", "I/LnJ", "JF1/MsJ", "KK/HlJ", "LEWES/EiJ", "LG/J", "LP/J", "MOLF/EiJ", "NOD/ShiLtJ", "NZB/B1NJ", "NZO/HlLtJ", "NZW/LacJ", "PL/J", "PWK/PhJ", "QSi3", "QSi5", "RF/J", "SEA/GnJ", "SJL/J", "SM/J", "SPRET/EiJ", "ST_bJ", "WSB/EiJ", "ZALENDE/EiJ" };
 
     private static final String VARIANT_CANON_INSERT = "insert into variant_canon_identifier (version, chr, position, ref, alt, variant_ref_txt) VALUES (0,?,?,?,?,?)";
-    private static final String VARIANT_INSERT = "insert into variant (chr, position, alt, ref, type, functional_class_code, assembly, parent_ref_ind, parent_variant_ref_txt, variant_ref_txt, dna_hgvs_notation, protein_hgvs_notation, canon_var_identifier_id, gene_id, strain_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    private static final String VARIANT_INSERT = "insert into variant (chr, position, alt, ref, type, functional_class_code, assembly, parent_ref_ind, parent_variant_ref_txt, variant_ref_txt, dna_hgvs_notation, protein_hgvs_notation, impact, canon_var_identifier_id, gene_id, strain_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     private static final String VARIANT_TRANSCRIPT_TEMP = "insert into variant_transcript_temp (variant_ref_txt, transcript_ids, transcript_feature_ids) VALUES (?,?,?)";
     private static final String GENOTYPE_TEMP = "insert into genotype_temp (format, genotype_data) VALUES (?,?)";
 
@@ -303,12 +303,17 @@ public class VariantInsertion {
                     insertVariants.setNull(12, Types.VARCHAR);
                 else
                     insertVariants.setString(12, concatenations);
-                insertVariants.setLong(13, canonIdx);
-                if (geneId == -1)
-                    insertVariants.setNull(14, Types.BIGINT);
+                concatenations = concatenate(annotationParsed, "Annotation_Impact");
+                if (concatenations == null)
+                    insertVariants.setNull(13, Types.VARCHAR);
                 else
-                    insertVariants.setLong(14, geneId);
-                insertVariants.setString(15, strainName);
+                    insertVariants.setString(13, concatenations);
+                insertVariants.setLong(14, canonIdx);
+                if (geneId == -1)
+                    insertVariants.setNull(15, Types.BIGINT);
+                else
+                    insertVariants.setLong(15, geneId);
+                insertVariants.setString(16, strainName);
                 insertVariants.addBatch();
 
                 canonIdx++;
@@ -333,21 +338,15 @@ public class VariantInsertion {
     }
 
     private String concatenate(List<Map<String, String>> annotations, String annotationKey) {
-        String concatenationResult;
+        String concatenationResult = "";
         for (Map<String, String> annot : annotations) {
-            concatenationResult = "";
-            for (Object key : annot.keySet()) {
-                if (key.equals(annotationKey)) {
-                    if (!concatenationResult.equals("")) {
-                        concatenationResult = concatenationResult.concat(",").concat(annot.get(annotationKey));
-                    } else {
-                        concatenationResult = annot.get(annotationKey);
-                    }
-                }
+            if (!concatenationResult.equals("")) {
+                concatenationResult = concatenationResult.concat(",").concat(annot.get(annotationKey));
+            } else {
+                concatenationResult = annot.get(annotationKey);
             }
-            return concatenationResult;
         }
-        return null;
+        return concatenationResult;
     }
 
     /**
