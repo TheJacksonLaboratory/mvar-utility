@@ -8,11 +8,12 @@ import java.util.*;
 
 public class VariantStrainInsertion {
 
+    private final static String SELECT_STRAIN_IDS = "SELECT id from strain where name = ?";
     private final static String SELECT_COUNT = "SELECT COUNT(*) from genotype_temp;";
     private final static String SELECT_GENOTYPE_TEMP = "SELECT id, format, genotype_data FROM genotype_temp WHERE id BETWEEN ? AND ?";
     private final static String INSERT_GENOTYPE = "INSERT INTO genotype (format, data, variant_id, strain_id) VALUES (?, ?, ?, ?)";
     private final static String INSERT_VARIANT_STRAIN = "INSERT INTO variant_strain (variant_strains_id, strain_id, genotype) VALUES (?, ?, ?)";
-    private final static int[] STRAIN_IDS = { 283, 2, 661, 4, 3, 5, 6729, 1236, 179, 6, 1569, 8, 10119, 199, 1902, 9, 10, 68, 11, 12, 2184, 43541, 7568, 9972, 862, 13, 6838, 14, 867, 15, 2008, 1214, 16, 48883, 48884, 888, 2362, 896, 863, 19, 2361, 17, 31346 };
+//    private final static int[] STRAIN_IDS = { 283, 2, 661, 4, 3, 5, 6729, 1236, 179, 6, 1569, 8, 10119, 199, 1902, 9, 10, 68, 11, 12, 2184, 43541, 7568, 9972, 862, 13, 6838, 14, 867, 15, 2008, 1214, 16, 48883, 48884, 888, 2362, 896, 863, 19, 2361, 17, 31346 };
     private final static String[] STRAIN_LIST = {"129P2/OlaHsd", "129S1/SvImJ", "129S5/SvEvBrd", "AKR/J", "A/J", "BALB/cJ", "BTBR T<+> Itpr3<tf>/J", "BUB/BnJ", "C3H/HeH", "C3H/HeJ", "C57BL/10J", "C57BL/6NJ", "C57BR/cdJ", "C57L/J", "C58/J", "CAST/EiJ", "CBA/J", "DBA/1J", "DBA/2J", "FVB/NJ", "I/LnJ", "JF1/MsJ", "KK/HlJ", "LEWES/EiJ", "LG/J", "LP/J", "MOLF/EiJ", "NOD/ShiLtJ", "NZB/BlNJ", "NZO/HlLtJ", "NZW/LacJ", "PL/J", "PWK/PhJ", "QSi3", "QSi5", "RF/J", "SEA/GnJ", "SJL/J", "SM/J", "SPRET/EiJ", "ST/bJ", "WSB/EiJ", "ZALENDE/EiJ" };
 
 
@@ -30,6 +31,10 @@ public class VariantStrainInsertion {
         Config config = new Config();
 
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
+
+            int[] strainIds = getStrainIds(connection);
+
+            // count all genotypes data saved
             PreparedStatement countStmt = null;
             ResultSet resultCount = null;
             int numberOfRecords = 0;
@@ -58,7 +63,7 @@ public class VariantStrainInsertion {
                     start = System.currentTimeMillis();
                     variantIdGenotypeMap = selectGenotypeFromTemp(connection, selectIdx, selectIdx + batchSize - 1);
 
-                    insertVariantStrainInBatch(connection, variantIdGenotypeMap);
+                    insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainIds);
                     variantIdGenotypeMap.clear();
                     elapsedTimeMillis = System.currentTimeMillis() - start;
                     System.out.println("Progress: " + i + " of " + numberOfRecords + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1));
@@ -69,7 +74,7 @@ public class VariantStrainInsertion {
             start = System.currentTimeMillis();
             variantIdGenotypeMap = selectGenotypeFromTemp(connection, selectIdx, numberOfRecords);
             if (variantIdGenotypeMap.size() > 0) {
-                insertVariantStrainInBatch(connection, variantIdGenotypeMap);
+                insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainIds);
                 variantIdGenotypeMap.clear();
                 elapsedTimeMillis = System.currentTimeMillis() - start;
                 System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords);
@@ -81,6 +86,33 @@ public class VariantStrainInsertion {
         } catch (SQLException exc) {
             exc.printStackTrace();
         }
+    }
+
+    private static int[] getStrainIds(Connection connection) throws SQLException {
+        // collect the list of all the strain ids given the list of strain names for the Sanger data
+        PreparedStatement strainIdStmt = null;
+        ResultSet resultStrainIds = null;
+        int[] strainIds = new int[STRAIN_LIST.length];
+
+        for (int i = 0; i < STRAIN_LIST.length; i++) {
+            try {
+                strainIdStmt = connection.prepareStatement(SELECT_STRAIN_IDS);
+                strainIdStmt.setString(1, STRAIN_LIST[i]);
+                resultStrainIds = strainIdStmt.executeQuery();
+                if (resultStrainIds.next()) {
+                    int id = resultStrainIds.getInt("id");
+                    strainIds[i] = id;
+                }
+            }  catch (SQLException exc) {
+                throw exc;
+            } finally {
+                if (resultStrainIds != null)
+                    resultStrainIds.close();
+                if (strainIdStmt != null)
+                    strainIdStmt.close();
+            }
+        }
+        return strainIds;
     }
 
     private static Map<Integer, String[]> selectGenotypeFromTemp(Connection connection, int start, int stop) throws SQLException {
@@ -113,7 +145,7 @@ public class VariantStrainInsertion {
         return variantIdGenotypeMap;
     }
 
-    private static void insertVariantStrainInBatch(Connection connection, Map<Integer, String[]> variantIdGenotypeMap) throws SQLException {
+    private static void insertVariantStrainInBatch(Connection connection, Map<Integer, String[]> variantIdGenotypeMap, int[] strainIds) throws SQLException {
         // insert in variant transcript relationship
         PreparedStatement insertVariantStrain = null;
 //        PreparedStatement insertGenotype = null;
@@ -137,7 +169,7 @@ public class VariantStrainInsertion {
 //                        insertGenotype.setInt(4, STRAIN_IDS[i]);
 //                        insertGenotype.addBatch();
                         insertVariantStrain.setInt(1, variantId);
-                        insertVariantStrain.setInt(2, STRAIN_IDS[i]);
+                        insertVariantStrain.setInt(2, strainIds[i]);
                         insertVariantStrain.setString(3, geno[i]);
                         insertVariantStrain.addBatch();
                     }
