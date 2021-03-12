@@ -37,14 +37,15 @@ public class VcfParser {
                 if (!strLine.startsWith("#")) {
                     String[] columns = strLine.split("\t");
                     Variant var;
+                    // TODO correctly pull the hgvs notation from the vcf annotated file
                     if (columns.length > 8) {
                         String[] genotypes = Arrays.copyOfRange(columns, 9, columns.length);
                         String genotypeData = String.join("\t", genotypes);
                         var = new Variant(columns[0], columns[1], columns[2], columns[3],
-                                columns[4], columns[5], columns[6], columns[7], columns[8], genotypeData, strainList);
+                                columns[4], columns[5], columns[6], columns[7], columns[8], genotypeData, "", strainList);
                     } else {
                         var = new Variant(columns[0], columns[1], columns[2], columns[3],
-                                columns[4], columns[5], columns[6], columns[7], null, null, null);
+                                columns[4], columns[5], columns[6], columns[7], null, null, "", null);
                     }
                     if (variations.containsKey(var.getVariantRefTxt()))
                         System.out.println(var.getVariantRefTxt() + " already exists and will be overridden.");

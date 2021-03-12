@@ -33,7 +33,7 @@ public class VariantStrainInsertion {
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
 
             int[] strainIds = getStrainIds(connection);
-
+            System.out.println();
             // count all genotypes data saved
             PreparedStatement countStmt = null;
             ResultSet resultCount = null;
@@ -93,7 +93,7 @@ public class VariantStrainInsertion {
         PreparedStatement strainIdStmt = null;
         ResultSet resultStrainIds = null;
         int[] strainIds = new int[STRAIN_LIST.length];
-
+        String strStrainIds = "";
         for (int i = 0; i < STRAIN_LIST.length; i++) {
             try {
                 strainIdStmt = connection.prepareStatement(SELECT_STRAIN_IDS);
@@ -102,6 +102,7 @@ public class VariantStrainInsertion {
                 if (resultStrainIds.next()) {
                     int id = resultStrainIds.getInt("id");
                     strainIds[i] = id;
+                    strStrainIds = strStrainIds + ", " + id;
                 }
             }  catch (SQLException exc) {
                 throw exc;
@@ -112,6 +113,7 @@ public class VariantStrainInsertion {
                     strainIdStmt.close();
             }
         }
+        System.out.println("The list of strain Ids is the following : " + strStrainIds);
         return strainIds;
     }
 

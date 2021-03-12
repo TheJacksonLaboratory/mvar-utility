@@ -14,6 +14,7 @@ public class Variant {
     String info;
     String format;
     String genotypeData;
+    String variantHgvsNotation;
     String type;
     String annotation;
     String variantRefTxt;
@@ -21,7 +22,8 @@ public class Variant {
     String[] strainList;
 
     public Variant(String chr, String pos, String id, String ref, String alt, String qual,
-                   String filter, String info, String format, String genotypeData, String[] strainList) throws Exception {
+                   String filter, String info, String format, String genotypeData, String variantHgvsNotation,
+                   String[] strainList) throws Exception {
         this.chr = chr.replace("ch", "").replace("r", "");
         this.pos = pos;
         this.id = id;
@@ -35,6 +37,7 @@ public class Variant {
         this.annotation = getAnnotation(this.info.split(";"), "ANN");
         this.variantRefTxt = chr.concat("_").concat(pos).concat("_").concat(ref).concat("_").concat(alt);
         setType(ref, alt);
+        this.variantHgvsNotation = variantHgvsNotation;
         this.strainList = strainList;
 //        setStrains(genotypeData, strainList);
     }
@@ -49,19 +52,15 @@ public class Variant {
      */
     private void setType(String refSeq, String altSeq) {
         String result = "SNP";
-        if(altSeq.equals("DUP") || altSeq.equals("<DUP>"))
+        if (altSeq.equals("DUP") || altSeq.equals("<DUP>"))
             result = "GAIN";
-        else
-        if(altSeq.equals("DEL") || altSeq.equals("<DEL>"))
+        else if (altSeq.equals("DEL") || altSeq.equals("<DEL>"))
             result = "LOSS";
-        else
-        if(altSeq.equals("INV") || altSeq.equals("<INV>"))
+        else if (altSeq.equals("INV") || altSeq.equals("<INV>"))
             result = "INV";
-        else
-        if(refSeq.length() < altSeq.length())
+        else if (refSeq.length() < altSeq.length())
             result = "INS";
-        else
-        if(refSeq.length() > altSeq.length())
+        else if (refSeq.length() > altSeq.length())
             result = "DEL";
         this.type = result;
     }
@@ -82,29 +81,19 @@ public class Variant {
         return ref;
     }
 
-    public String getAlt() {
-        return alt;
-    }
+    public String getAlt() { return alt; }
 
-    public String getQual() {
-        return qual;
-    }
+    public String getHGVS() { return variantHgvsNotation; }
 
-    public String getFilter() {
-        return filter;
-    }
+    public String getQual() { return qual; }
 
-    public String getInfo() {
-        return info;
-    }
+    public String getFilter() { return filter; }
 
-    public String getFormat() {
-        return format;
-    }
+    public String getInfo() { return info; }
 
-    public String getGenotypeData() {
-        return genotypeData;
-    }
+    public String getFormat() { return format; }
+
+    public String getGenotypeData() { return genotypeData; }
 
     private String getAnnotation(String[] annotations, String id) {
         String annotation;
