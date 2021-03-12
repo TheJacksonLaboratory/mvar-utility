@@ -17,14 +17,21 @@ This application is used to :
     
     2.1 Insert variation file(s)
     
-    The Executable can be run with the following command:
+    The Executable can be run with the following command,
     
+    To insert one file (vcf or vcf compressed (gz):
     <code>
-        java -jar mvar-utility-all.jar /path/to/data batch_size="integer" type=SNP,DEL,INS
+        java -jar mvar-utility-all.jar /path/to/data_file.vcf batch_size=integer
     </code>
     
-    Both "batch_size" and "type" are optional, and the corresponding default values are 1000 and "ALL". The available types are "SNP", "DEL" and "INS". Multiple types can be added by separating them by commas ",".
-    
+    The "chr" parameter is needed when inserting files that have been splitted by chromosomes. The order of the chromosomes can be set in this file, and it will be respected when inserting the data. The chromosome file should be located in the same path/folder where the vcf file(s) is/are.
+    Both "batch_size" is optional and the default value is 1000.
+
+    To insert multiple files by chromosomes (one file per chromosome, for very large files, the insertion is more efficient on files that are split into smaller files):
+    <code>
+        java -jar mvar-utility-all.jar /path/to/data_folder batch_size=integer chr=chromosomes.txt
+    </code>
+   
     The command above requires Java 8 to be installed and possible the following JVM parameters to be set up depending on the size of the data to insert into the database.
     
     <code>
@@ -44,15 +51,24 @@ This application is used to :
         -Djava.rmi.server.hostname=mvr-test01
     </code>
 
-    2.2 Insert variant-transcript relationships
+    2.2 Insert variant-transcript and variant-strain relationships
     
-    The executable can be run with the following arguments in order to insert the variant/transcript relationships.
+    The insertion command does not add the corresponding relationships in order to make the insertion take less time. To insert the relationships the following commands need to be run:
+    
+    The variant/transcript relationships are added with the "REL" parameter:
     
     <code>
         java -jar mvar-utility-all.jar /path/to/data REL batch_size="integer" start_id="integer"
     </code>
     
-     where batch_size is optional (1000000 by default) and start_id is optional (1 by default).
+    where batch_size is optional (1000000 by default) and start_id is optional (1 by default).
+
+    The variant/strain relationships are added with the "GENO" parameter (we know whether there is a variant for a certain strain by parsing the genotype information in the VCF data):
+    <code>
+       java -jar mvar-utility-all.jar /path/to/data GENO batch_size="integer" start_id="integer"
+    </code>
+
+    where batch_size is optional (1000000 by default) and start_id is optional (1 by default).
      
 3. Run MGI comparison
 
