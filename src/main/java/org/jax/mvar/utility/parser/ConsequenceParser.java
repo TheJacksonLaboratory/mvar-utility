@@ -7,7 +7,7 @@ import java.util.Map;
 /**
  * ##INFO=<ID=CSQ,Number=.,Type=String,Description="Consequence type from Ensembl 78 as predicted by VEP. Format: Allele|Gene|Feature|Feature_type|Consequence|cDNA_position|CDS_position|Protein_position|Amino_acids|Codons|Existing_variation|DISTANCE|STRAND">
  */
-class ConsequenceParser extends InfoParser {
+public class ConsequenceParser extends InfoParser {
 
     @Override
     public String getInfoId() {
@@ -25,5 +25,14 @@ class ConsequenceParser extends InfoParser {
         return Arrays.asList("Allele", "Gene", "Feature", "Feature_type", "Consequence", "cDNA_position",
                 "CDS_position", "Protein_position", "Amino_acids", "Codons", "Existing_variation",
                 "DISTANCE", "STRAND");
+    }
+
+    /**
+     * Returns the HGVSg parsed from the given consequence string
+     * @param consequence
+     * @return
+     */
+    public static String getHGVSg(String consequence) {
+        return consequence.substring(consequence.lastIndexOf('|') + 1);
     }
 }

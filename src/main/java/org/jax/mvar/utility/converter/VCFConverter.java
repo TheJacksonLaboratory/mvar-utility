@@ -46,11 +46,10 @@ public class VCFConverter {
                     if (alleles.length >= 2) {
                         String genotypes = getGTFields(genotypeData, alleles);
                         Variant var;
-                        // TODO retrieve the hgvs notation
                         if (alleles.length == 2)
-                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1], "", "", "", "GT", genotypes, "", strainList);
+                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1], "", "", "", "GT", genotypes, strainList);
                         else
-                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1].concat(alleles[2]), "", "", "", "GT", genotypes, "", strainList);
+                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1].concat(alleles[2]), "", "", "", "GT", genotypes, strainList);
 
                         if (variations.containsKey(var.getVariantRefTxt()))
                             System.out.println(var.getVariantRefTxt() + " already exists and will be overridden.");

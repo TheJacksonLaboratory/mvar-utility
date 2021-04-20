@@ -8,6 +8,7 @@ import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 import org.jax.mvar.utility.Config;
 import org.jax.mvar.utility.model.Variant;
 import org.jax.mvar.utility.parser.AnnotationParser;
+import org.jax.mvar.utility.parser.ConsequenceParser;
 import org.jax.mvar.utility.parser.InfoParser;
 import org.jax.mvar.utility.parser.VcfParser;
 
@@ -292,7 +293,7 @@ public class VariantInsertion {
                 // for now we put the variantRefTxt in ParentVarRef too as we are inserting variants with assembly 38 already (no liftover)
                 insertVariants.setString(9, variant.getVariantRefTxt());
                 insertVariants.setString(10, variant.getVariantRefTxt());
-                insertVariants.setString(11, variant.getHGVS());
+                insertVariants.setString(11, ConsequenceParser.getHGVSg(variant.getConsequence()));
                 concatenations = concatenate(annotationParsed, "HGVS.c");
                 if (concatenations == null)
                     insertVariants.setNull(12, Types.VARCHAR);

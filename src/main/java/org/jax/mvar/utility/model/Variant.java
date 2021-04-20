@@ -14,7 +14,7 @@ public class Variant {
     String info;
     String format;
     String genotypeData;
-    String variantHgvsNotation;
+    String vepConsequence;
     String type;
     String annotation;
     String variantRefTxt;
@@ -22,8 +22,7 @@ public class Variant {
     String[] strainList;
 
     public Variant(String chr, String pos, String id, String ref, String alt, String qual,
-                   String filter, String info, String format, String genotypeData, String variantHgvsNotation,
-                   String[] strainList) throws Exception {
+                   String filter, String info, String format, String genotypeData, String[] strainList) throws Exception {
         this.chr = chr.replace("ch", "").replace("r", "");
         this.pos = pos;
         this.id = id;
@@ -35,9 +34,9 @@ public class Variant {
         this.format = format;
         this.genotypeData = genotypeData;
         this.annotation = getAnnotation(this.info.split(";"), "ANN");
+        this.vepConsequence = getAnnotation(this.info.split(";"), "CSQ");
         this.variantRefTxt = chr.concat("_").concat(pos).concat("_").concat(ref).concat("_").concat(alt);
         setType(ref, alt);
-        this.variantHgvsNotation = variantHgvsNotation;
         this.strainList = strainList;
 //        setStrains(genotypeData, strainList);
     }
@@ -83,7 +82,7 @@ public class Variant {
 
     public String getAlt() { return alt; }
 
-    public String getHGVS() { return variantHgvsNotation; }
+    public String getConsequence() { return vepConsequence; }
 
     public String getQual() { return qual; }
 
