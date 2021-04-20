@@ -3,27 +3,26 @@ package org.jax.mvar.utility.insert;
 import org.apache.commons.lang3.time.StopWatch;
 import org.jax.mvar.utility.Config;
 
+import java.io.*;
 import java.sql.*;
 import java.util.*;
 
 public class VariantStrainInsertion {
 
-    private final static String SELECT_STRAIN_IDS = "SELECT id from strain where name = ?";
+    private final static String SELECT_STRAIN_IDS = "SELECT id from strain where name like ?";
     private final static String SELECT_COUNT = "SELECT COUNT(*) from genotype_temp;";
     private final static String SELECT_GENOTYPE_TEMP = "SELECT id, format, genotype_data FROM genotype_temp WHERE id BETWEEN ? AND ?";
     private final static String INSERT_GENOTYPE = "INSERT INTO genotype (format, data, variant_id, strain_id) VALUES (?, ?, ?, ?)";
     private final static String INSERT_VARIANT_STRAIN = "INSERT INTO variant_strain (variant_id, strain_id, genotype, genotype_data) VALUES (?, ?, ?, ?)";
-//    private final static int[] STRAIN_IDS = { 283, 2, 661, 4, 3, 5, 6729, 1236, 179, 6, 1569, 8, 10119, 199, 1902, 9, 10, 68, 11, 12, 2184, 43541, 7568, 9972, 862, 13, 6838, 14, 867, 15, 2008, 1214, 16, 48883, 48884, 888, 2362, 896, 863, 19, 2361, 17, 31346 };
-    private final static String[] STRAIN_LIST = {"129P2/OlaHsd", "129S1/SvImJ", "129S5/SvEvBrd", "AKR/J", "A/J", "BALB/cJ", "BTBR T<+> Itpr3<tf>/J", "BUB/BnJ", "C3H/HeH", "C3H/HeJ", "C57BL/10J", "C57BL/6NJ", "C57BR/cdJ", "C57L/J", "C58/J", "CAST/EiJ", "CBA/J", "DBA/1J", "DBA/2J", "FVB/NJ", "I/LnJ", "JF1/MsJ", "KK/HlJ", "LEWES/EiJ", "LG/J", "LP/J", "MOLF/EiJ", "NOD/ShiLtJ", "NZB/BlNJ", "NZO/HlLtJ", "NZW/LacJ", "PL/J", "PWK/PhJ", "QSi3", "QSi5", "RF/J", "SEA/GnJ", "SJL/J", "SM/J", "SPRET/EiJ", "ST/bJ", "WSB/EiJ", "ZALENDE/EiJ" };
-
 
     /**
      * Insert variant/transcripts relationships given the variant_transcript_temp table
      *
      * @param batchSize
      * @param startId in case a process needs to be re-run from a certain variant_id (instead of starting from the beginning all over again
+     * @param strainFilePath full path of strain file
      */
-    public static void insertVariantStrainRelationships(int batchSize, int startId) {
+    public static void insertVariantStrainRelationships(int batchSize, int startId, String strainFilePath) {
         System.out.println("Inserting Variant Strain relationships...");
         final StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -32,7 +31,7 @@ public class VariantStrainInsertion {
 
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
 
-            int[] strainIds = getStrainIds(connection);
+            List<Integer> strainIds = getStrainIds(connection, strainFilePath);
             System.out.println();
             // count all genotypes data saved
             PreparedStatement countStmt = null;
@@ -88,21 +87,36 @@ public class VariantStrainInsertion {
         }
     }
 
-    private static int[] getStrainIds(Connection connection) throws SQLException {
+    private static List<Integer> getStrainIds(Connection connection, String strainFilePath) throws SQLException {
+        // Collect list of strains from strainFile
+        // get the file names from a list a the chromosome file names is not in the wanted order
+        final List<String> strains = new ArrayList<>();
+        try {
+            try (BufferedReader in = new BufferedReader(new FileReader(new File(strainFilePath)))) {
+                String line = in.readLine(); // read a line at a time
+                while (line != null) { // loop till you have no more lines
+                    strains.add(line); // add the line to your list
+                    line = in.readLine(); // try to read another line
+                }
+            }
+        }catch (Exception exc) {
+            System.out.println(exc.getMessage());
+        }
+
         // collect the list of all the strain ids given the list of strain names for the Sanger data
         PreparedStatement strainIdStmt = null;
         ResultSet resultStrainIds = null;
-        int[] strainIds = new int[STRAIN_LIST.length];
+        List<Integer> strainIds = new ArrayList<Integer>();
         String strStrainIds = "";
-        for (int i = 0; i < STRAIN_LIST.length; i++) {
+        for (int i = 0; i < strains.size(); i++) {
             try {
                 strainIdStmt = connection.prepareStatement(SELECT_STRAIN_IDS);
-                strainIdStmt.setString(1, STRAIN_LIST[i]);
+                strainIdStmt.setString(1, strains.get(i) + "%");
                 resultStrainIds = strainIdStmt.executeQuery();
                 if (resultStrainIds.next()) {
                     int id = resultStrainIds.getInt("id");
-                    strainIds[i] = id;
-                    strStrainIds = strStrainIds + ", " + id;
+                    strainIds.add(id);
+                    strStrainIds = strStrainIds + ":" + id;
                 }
             }  catch (SQLException exc) {
                 throw exc;
@@ -146,7 +160,7 @@ public class VariantStrainInsertion {
         return variantIdGenotypeMap;
     }
 
-    private static void insertVariantStrainInBatch(Connection connection, Map<Integer, String[]> variantIdGenotypeMap, int[] strainIds) throws SQLException {
+    private static void insertVariantStrainInBatch(Connection connection, Map<Integer, String[]> variantIdGenotypeMap, List<Integer> strainIds) throws SQLException {
         // insert in variant transcript relationship
         PreparedStatement insertVariantStrain = null;
 
@@ -161,7 +175,7 @@ public class VariantStrainInsertion {
                     // if there is a genotype data for the strain
 //                  if (!geno[i].startsWith("./.") && !geno[i].startsWith("0/0")) {
                     insertVariantStrain.setInt(1, variantId);
-                    insertVariantStrain.setInt(2, strainIds[i]);
+                    insertVariantStrain.setInt(2, strainIds.get(i));
                     // we parse the first three characters
                     insertVariantStrain.setString(3, geno[i].substring(0, 3));
                     // we parse the rest of the genotype info minus the first character which is a ':'

@@ -47,6 +47,7 @@ public class App {
             } else {
                 arguments.put("chr", "");
                 if (args[0].equals("GENO")) {
+                    arguments.put("strain_path", args[1].split("=")[1]);
                     setArguments(arguments, args, false, true);
                 } else if (args[0].equals("REL")) {
                     setArguments(arguments, args, true, false);
@@ -101,31 +102,17 @@ public class App {
                     VariantTranscriptInsertion.insertVariantTranscriptRelationships(batchSize, startId);
                 } else if ((boolean)arguments.get("GENO") && !(boolean)arguments.get("REL")) {
                     int startId = (int)arguments.get("start_id");
-                    VariantStrainInsertion.insertVariantStrainRelationships(batchSize, startId);
+                    String strainFilePath = (String)arguments.get("strain_path");
+                    VariantStrainInsertion.insertVariantStrainRelationships(batchSize, startId, strainFilePath);
                 } else {
                     String path = (String) arguments.get("data_path");
-                    String chromosomePath = (String) arguments.get("chr");
                     // String strainPath = (String) arguments.get("strains");
                     File f = new File(path);
                     assert f != null;
                     if (f.isDirectory()) {
-                        File[] files;
-                        if (!chromosomePath.equals("")) {
-                            // get the file names from a list a the chromosome file names is not in the wanted order
-                            final List<File> chromosomes = new ArrayList<>();
-                            try(BufferedReader in = new BufferedReader(
-                                    new FileReader(new File(path + "/" + chromosomePath)))) {
-                                String line = in.readLine(); // read a line at a time
-                                while(line != null){ // loop till you have no more lines
-                                    chromosomes.add(new File(path + line + ".vcf")); // add the line to your list
-                                    line = in.readLine(); // try to read another line
-                                }
-                            }
-                            files = chromosomes.stream().toArray(File[]::new);
-                        } else {
-                            files = new File(f.getPath()).listFiles();
-                        }
+                        File[] files = new File(f.getPath()).listFiles();
                         assert files != null;
+                        Arrays.sort(files);
                         for (File file : files) {
                             if (file.isFile() && (file.getName().endsWith(".gz") || (file.getName().endsWith(".vcf"))))
                                 insertService.loadVCF(file, batchSize);

@@ -24,12 +24,11 @@ This application is used to :
         java -jar mvar-utility-all.jar /path/to/data_file.vcf batch_size=integer
     </code>
     
-    The "chr" parameter is needed when inserting files that have been splitted by chromosomes. The order of the chromosomes can be set in this file, and it will be respected when inserting the data. The chromosome file should be located in the same path/folder where the vcf file(s) is/are.
-    Both "batch_size" is optional and the default value is 1000.
+    The "batch_size" is optional and the default value is 1000.
 
-    To insert multiple files by chromosomes (one file per chromosome, for very large files, the insertion is more efficient on files that are split into smaller files):
+    To insert multiple files, a folder where the files are located can be passed as a parameter:
     <code>
-        java -jar mvar-utility-all.jar /path/to/data_folder batch_size=integer chr=chromosomes.txt
+        java -jar mvar-utility-all.jar /path/to/data_folder batch_size=integer
     </code>
    
     The command above requires Java 8 to be installed and possible the following JVM parameters to be set up depending on the size of the data to insert into the database.
@@ -63,9 +62,9 @@ This application is used to :
     
     where batch_size is optional (1000000 by default) and start_id is optional (1 by default).
 
-    The variant/strain relationships are added with the "GENO" parameter (we know whether there is a variant for a certain strain by parsing the genotype information in the VCF data):
+    The variant/strain relationships are added with the "GENO" parameter (we know whether there is a variant for a certain strain by parsing the genotype information in the VCF data). A required parameter is "strain_path" which points to a text file with the list of strains in the DB (separated by carriage returns):
     <code>
-       java -jar mvar-utility-all.jar /path/to/data GENO batch_size="integer" start_id="integer"
+       java -jar mvar-utility-all.jar /path/to/data GENO batch_size="integer" start_id="integer" strain_path=/path/to/strain_file.txt
     </code>
 
     where batch_size is optional (1000000 by default) and start_id is optional (1 by default).
