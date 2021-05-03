@@ -293,7 +293,7 @@ public class VariantInsertion {
                 // for now we put the variantRefTxt in ParentVarRef too as we are inserting variants with assembly 38 already (no liftover)
                 insertVariants.setString(9, variant.getVariantRefTxt());
                 insertVariants.setString(10, variant.getVariantRefTxt());
-                insertVariants.setString(11, ConsequenceParser.getHGVSg(variant.getConsequence()));
+                insertVariants.setString(11, variant.getHgvsg());
                 concatenations = concatenate(annotationParsed, "HGVS.c");
                 if (concatenations == null)
                     insertVariants.setNull(12, Types.VARCHAR);

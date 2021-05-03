@@ -77,4 +77,21 @@ abstract public class InfoParser {
      */
     abstract public List<String> getAnnotationKeys();
 
+    /**
+     *
+     * @param annotations
+     * @param id
+     * @return
+     */
+    public static String getAnnotation(String[] annotations, String id) {
+        String annotation;
+        for (int i = 0; i < annotations.length; i++) {
+            if (annotations[i].startsWith(id)) {
+//                annotation = annotations[i].substring(id.length() + 1);
+//                return annotation;
+                return annotations[i];
+            }
+        }
+        return "";
+    }
 }

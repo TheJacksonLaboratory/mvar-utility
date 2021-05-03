@@ -29,10 +29,17 @@ public class ConsequenceParser extends InfoParser {
 
     /**
      * Returns the HGVSg parsed from the given consequence string
-     * @param consequence
+     * @param consequence Vep annotation string
+     * @param idx index where the corresponding hgvsg is
      * @return
      */
-    public static String getHGVSg(String consequence) {
-        return consequence.substring(consequence.lastIndexOf('|') + 1);
+    public static String getHGVSg(String consequence, int idx) throws Exception {
+        if (consequence != null && !consequence.equals("")) {
+            String[] csqParts = consequence.split(",");
+            if (idx >= csqParts.length)
+                throw new Exception("idx must be within range 0 to " + csqParts.length);
+            return csqParts[idx].substring(csqParts[idx].lastIndexOf('|') + 1);
+        }
+        return "";
     }
 }
