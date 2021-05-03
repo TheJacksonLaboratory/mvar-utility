@@ -57,14 +57,14 @@ This application is used to :
     The variant/transcript relationships are added with the "REL" parameter:
     
     <code>
-        java -jar mvar-utility-all.jar /path/to/data REL batch_size="integer" start_id="integer"
+        java -jar mvar-utility-all.jar REL batch_size="integer" start_id="integer"
     </code>
     
     where batch_size is optional (1000000 by default) and start_id is optional (1 by default).
 
     The variant/strain relationships are added with the "GENO" parameter (we know whether there is a variant for a certain strain by parsing the genotype information in the VCF data). A required parameter is "strain_path" which points to a text file with the list of strains in the DB (separated by carriage returns):
     <code>
-       java -jar mvar-utility-all.jar /path/to/data GENO batch_size="integer" start_id="integer" strain_path=/path/to/strain_file.txt
+       java -jar mvar-utility-all.jar GENO batch_size="integer" start_id="integer" strain_path=/path/to/strain_file.txt
     </code>
 
     where batch_size is optional (1000000 by default) and start_id is optional (1 by default).
