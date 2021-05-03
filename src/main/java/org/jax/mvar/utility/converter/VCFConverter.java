@@ -47,9 +47,9 @@ public class VCFConverter {
                         String genotypes = getGTFields(genotypeData, alleles);
                         Variant var;
                         if (alleles.length == 2)
-                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1], "", "", "", "GT", genotypes, strainList);
+                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1], "", "", "", "", "", genotypes);
                         else
-                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1].concat(alleles[2]), "", "", "", "GT", genotypes, strainList);
+                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1].concat(alleles[2]), "", "", "", "", "", genotypes);
 
                         if (variations.containsKey(var.getVariantRefTxt()))
                             System.out.println(var.getVariantRefTxt() + " already exists and will be overridden.");
@@ -130,7 +130,7 @@ public class VCFConverter {
                 Variant variant = variantEntry.getValue();
                 String line = variant.getChr() + sep + variant.getPos() + sep + variant.getId() + sep
                         + variant.getRef() + sep + variant.getAlt() + sep + variant.getQual() + sep
-                        + variant.getFilter() + sep + variant.getInfo() + sep + variant.getFormat() + sep;
+                        + variant.getFilter() + sep + variant.getAnnotation() + sep + variant.getFormat() + sep;
                 String genotypeStr = variant.getGenotypeData();
                 String[] genotypeData = genotypeStr.split(",");
                 for (int i = 0; i < genotypeData.length; i++) {

@@ -3,8 +3,7 @@ package org.jax.mvar.utility.parser;
 import org.jax.mvar.utility.model.Variant;
 
 import java.io.*;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
+import java.util.*;
 
 /**
  * Class used to parse a VCF file line by line
@@ -36,15 +35,21 @@ public class VcfParser {
                 last = ((next = br.readLine()) == null);
                 if (!strLine.startsWith("#")) {
                     String[] columns = strLine.split("\t");
+
+                    // jannovar transcript annotation
+                    String jannotation = InfoParser.getAnnotation(columns[7].split(";"), "ANN");
+                    // VEP hgvs annotation
+                    String hgvsg = ConsequenceParser.getHGVSg(InfoParser.getAnnotation(columns[7].split(";"), "CSQ"), 0);
+
                     Variant var;
                     if (columns.length > 8) {
                         String[] genotypes = Arrays.copyOfRange(columns, 9, columns.length);
                         String genotypeData = String.join("\t", genotypes);
                         var = new Variant(columns[0], columns[1], columns[2], columns[3],
-                                columns[4], columns[5], columns[6], columns[7], columns[8], genotypeData, null);
+                                columns[4], columns[5], columns[6], columns[8], hgvsg, jannotation, genotypeData);
                     } else {
                         var = new Variant(columns[0], columns[1], columns[2], columns[3],
-                                columns[4], columns[5], columns[6], columns[7], null, null, null);
+                                columns[4], columns[5], columns[6], columns[8], hgvsg, jannotation, null);
                     }
                     if (variations.containsKey(var.getVariantRefTxt()))
                         System.out.println(var.getVariantRefTxt() + " already exists and will be overridden.");

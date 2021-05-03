@@ -11,18 +11,19 @@ public class Variant {
     String alt;
     String qual;
     String filter;
+    String hgvsg;
+    String jannovarAnnotation;
     String info;
     String format;
     String genotypeData;
     String vepConsequence;
     String type;
-    String annotation;
     String variantRefTxt;
     Map strains;
     String[] strainList;
 
-    public Variant(String chr, String pos, String id, String ref, String alt, String qual,
-                   String filter, String info, String format, String genotypeData, String[] strainList) throws Exception {
+    public Variant(String chr, String pos, String id, String ref, String alt, String qual, String filter,
+                   String format, String hgvsg, String jannovarAnnotation, String genotypeData) {
         this.chr = chr.replace("ch", "").replace("r", "");
         this.pos = pos;
         this.id = id;
@@ -30,15 +31,12 @@ public class Variant {
         this.alt = alt;
         this.qual = qual;
         this.filter = filter;
-        this.info = info;
+        this.hgvsg = hgvsg;
+        this.jannovarAnnotation = jannovarAnnotation;
         this.format = format;
         this.genotypeData = genotypeData;
-        this.annotation = getAnnotation(this.info.split(";"), "ANN");
-        this.vepConsequence = getAnnotation(this.info.split(";"), "CSQ");
         this.variantRefTxt = chr.concat("_").concat(pos).concat("_").concat(ref).concat("_").concat(alt);
-        setType(ref, alt);
-        this.strainList = strainList;
-//        setStrains(genotypeData, strainList);
+        setType(this.ref, this.alt);
     }
 
     /**
@@ -82,31 +80,20 @@ public class Variant {
 
     public String getAlt() { return alt; }
 
-    public String getConsequence() { return vepConsequence; }
+    public String getHgvsg() {
+        return hgvsg;
+    }
 
     public String getQual() { return qual; }
 
     public String getFilter() { return filter; }
 
-    public String getInfo() { return info; }
-
     public String getFormat() { return format; }
 
     public String getGenotypeData() { return genotypeData; }
 
-    private String getAnnotation(String[] annotations, String id) {
-        String annotation;
-        for (int i = 0; i < annotations.length; i++) {
-            if (annotations[i].startsWith(id)) {
-                annotation = annotations[i];
-                return annotation;
-            }
-        }
-        return "";
-    }
-
     public String getAnnotation() {
-        return annotation;
+        return jannovarAnnotation;
     }
 
     public String getVariantRefTxt() {
