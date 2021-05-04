@@ -21,14 +21,14 @@ This application is used to :
     
     To insert one file (vcf or vcf compressed (gz):
     <code>
-        java -jar mvar-utility-all.jar /path/to/data_file.vcf batch_size=integer
+        java -jar mvar-utility-all.jar data_path=/path/to/data_file.vcf batch_size=integer
     </code>
     
     The "batch_size" is optional and the default value is 1000.
 
     To insert multiple files, a folder where the files are located can be passed as a parameter:
     <code>
-        java -jar mvar-utility-all.jar /path/to/data_folder batch_size=integer
+        java -jar mvar-utility-all.jar data_path=/path/to/data_folder batch_size=integer
     </code>
    
     The command above requires Java 8 to be installed and possible the following JVM parameters to be set up depending on the size of the data to insert into the database.
