@@ -76,7 +76,7 @@ public class VariantInsertion {
         stopWatch.start();
 
         // parse variants into a Map
-        LinkedHashMap<String, Variant> variations = VcfParser.parseVcf(vcfFile, STRAIN_LIST);
+        LinkedHashMap<String, Variant> variations = VcfParser.parseVcf(vcfFile);
         // insert variants parsed
         insertVariantsBatch(connection, variations);
         System.out.println(variations.keySet().size() + " inserted in " + stopWatch + ", " + new Date());

@@ -29,7 +29,7 @@ public class MGIChecker {
             stopWatch.start();
 
             // parse variants into a Map
-            LinkedHashMap<String, Variant> variations = VcfParser.parseVcf(vcfFile, null);
+            LinkedHashMap<String, Variant> variations = VcfParser.parseVcf(vcfFile);
             // query database for duplicates
             Map<Integer, Variant> result = queryDatabase(connection, variations);
             writeToFile(result);
