@@ -13,7 +13,7 @@ public class VariantStrainInsertion {
     private final static String SELECT_COUNT = "SELECT COUNT(*) from genotype_temp;";
     private final static String SELECT_GENOTYPE_TEMP = "SELECT id, format, genotype_data FROM genotype_temp WHERE id BETWEEN ? AND ?";
     private final static String INSERT_GENOTYPE = "INSERT INTO genotype (format, data, variant_id, strain_id) VALUES (?, ?, ?, ?)";
-    private final static String INSERT_VARIANT_STRAIN = "INSERT INTO variant_strain (variant_id, strain_id, genotype, genotype_data) VALUES (?, ?, ?, ?)";
+    private final static String INSERT_VARIANT_STRAIN = "INSERT INTO variant_strain (variant_id, strain_id, genotype) VALUES (?, ?, ?)";
 
     /**
      * Insert variant/transcripts relationships given the variant_transcript_temp table
@@ -176,10 +176,8 @@ public class VariantStrainInsertion {
 //                  if (!geno[i].startsWith("./.") && !geno[i].startsWith("0/0")) {
                     insertVariantStrain.setInt(1, variantId);
                     insertVariantStrain.setInt(2, strainIds.get(i));
-                    // we parse the first three characters
-                    insertVariantStrain.setString(3, geno[i].substring(0, 3));
-                    // we parse the rest of the genotype info minus the first character which is a ':'
-                    insertVariantStrain.setString(4, geno[i].substring(4));
+                    // we parse the first id (GT)
+                    insertVariantStrain.setString(3, geno[i].split(":")[0]);
                     insertVariantStrain.addBatch();
                 }
             }

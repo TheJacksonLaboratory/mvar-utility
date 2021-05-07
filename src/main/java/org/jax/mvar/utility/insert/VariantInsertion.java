@@ -21,17 +21,16 @@ public class VariantInsertion {
 
     private Map<String, String[]> newTranscriptsMap;
 
-    private final static List<String> MOUSE_CHROMOSOMES = Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "X", "Y", "MT");
     private final static List<String> VARIANT_TYPES = Arrays.asList("SNP", "DEL", "INS");
-    private final static String[] STRAIN_LIST = { "129P2/OlaHsd", "129S1/SvImJ", "129S5/SvEvBrd", "AKR/J", "A/J",  "BALB/cJ", "BTBR T<+> Itpr3<tf>/J", "BUB/BnJ", "C3H/HeH", "C3H/HeJ", "C57BL/10J", "C57BL/6NJ", "C57BR/cdJ", "C57L/J", "C58/J", "CAST/EiJ", "CBA/J", "DBA/1J", "DBA/2J", "FVB/NJ", "I/LnJ", "JF1/MsJ", "KK/HlJ", "LEWES/EiJ", "LG/J", "LP/J", "MOLF/EiJ", "NOD/ShiLtJ", "NZB/B1NJ", "NZO/HlLtJ", "NZW/LacJ", "PL/J", "PWK/PhJ", "QSi3", "QSi5", "RF/J", "SEA/GnJ", "SJL/J", "SM/J", "SPRET/EiJ", "ST_bJ", "WSB/EiJ", "ZALENDE/EiJ" };
 
-    private static final String VARIANT_CANON_INSERT = "insert into variant_canon_identifier (version, chr, position, ref, alt, variant_ref_txt) VALUES (0,?,?,?,?,?)";
-    private static final String VARIANT_INSERT = "insert into variant (chr, position, alt, ref, type, functional_class_code, assembly, parent_ref_ind, parent_variant_ref_txt, variant_ref_txt, variant_hgvs_notation, dna_hgvs_notation, protein_hgvs_notation, impact, canon_var_identifier_id, gene_id, strain_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    private static final String VARIANT_CANON_INSERT = "insert into variant_canon_identifier (variant_ref_txt) VALUES (?)";
+    private static final String VARIANT_INSERT = "insert into variant (chr, position, alt, ref, type, functional_class_code, assembly, parent_ref_ind, variant_ref_txt, variant_hgvs_notation, dna_hgvs_notation, protein_hgvs_notation, impact, canon_var_identifier_id, gene_id, strain_name, source_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     private static final String VARIANT_TRANSCRIPT_TEMP = "insert into variant_transcript_temp (variant_ref_txt, transcript_ids, transcript_feature_ids) VALUES (?,?,?)";
     private static final String GENOTYPE_TEMP = "insert into genotype_temp (format, genotype_data) VALUES (?,?)";
 
     private static int batchSize = 1000;
     private static final String ASSEMBLY = "grcm38";
+    private static final String SOURCE = "Sanger REL2005";
     private InfoParser infoParser = new AnnotationParser();
 
     /**
@@ -242,11 +241,7 @@ public class VariantInsertion {
                 String strainName = "";
 
                 // insert into canonical table
-                insertCanonVariants.setString(1, variant.getChr());
-                insertCanonVariants.setInt(2, Integer.parseInt(variant.getPos()));
-                insertCanonVariants.setString(3, variant.getRef());
-                insertCanonVariants.setString(4, variant.getAlt());
-                insertCanonVariants.setString(5, variant.getVariantRefTxt());
+                insertCanonVariants.setString(1, variant.getVariantRefTxt());
                 insertCanonVariants.addBatch();
 
                 // get jannovar info
@@ -292,29 +287,29 @@ public class VariantInsertion {
                 insertVariants.setBoolean(8, true);
                 // for now we put the variantRefTxt in ParentVarRef too as we are inserting variants with assembly 38 already (no liftover)
                 insertVariants.setString(9, variant.getVariantRefTxt());
-                insertVariants.setString(10, variant.getVariantRefTxt());
-                insertVariants.setString(11, variant.getHgvsg());
+                insertVariants.setString(10, variant.getHgvsg());
                 concatenations = concatenate(annotationParsed, "HGVS.c");
+                if (concatenations == null)
+                    insertVariants.setNull(11, Types.VARCHAR);
+                else
+                    insertVariants.setString(11, concatenations);
+                concatenations = concatenate(annotationParsed, "HGVS.p");
                 if (concatenations == null)
                     insertVariants.setNull(12, Types.VARCHAR);
                 else
                     insertVariants.setString(12, concatenations);
-                concatenations = concatenate(annotationParsed, "HGVS.p");
+                concatenations = concatenate(annotationParsed, "Annotation_Impact");
                 if (concatenations == null)
                     insertVariants.setNull(13, Types.VARCHAR);
                 else
                     insertVariants.setString(13, concatenations);
-                concatenations = concatenate(annotationParsed, "Annotation_Impact");
-                if (concatenations == null)
-                    insertVariants.setNull(14, Types.VARCHAR);
-                else
-                    insertVariants.setString(14, concatenations);
-                insertVariants.setLong(15, canonIdx);
+                insertVariants.setLong(14, canonIdx);
                 if (geneId == -1)
-                    insertVariants.setNull(16, Types.BIGINT);
+                    insertVariants.setNull(15, Types.BIGINT);
                 else
-                    insertVariants.setLong(16, geneId);
-                insertVariants.setString(17, strainName);
+                    insertVariants.setLong(15, geneId);
+                insertVariants.setString(16, strainName);
+                insertVariants.setString(17, SOURCE);
                 insertVariants.addBatch();
 
                 canonIdx++;
