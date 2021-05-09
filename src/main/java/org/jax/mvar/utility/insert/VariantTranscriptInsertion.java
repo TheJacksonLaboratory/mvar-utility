@@ -11,14 +11,17 @@ public class VariantTranscriptInsertion {
     private final static String SELECT_COUNT = "SELECT COUNT(*) from variant_transcript_temp";
     private final static String SELECT_VARIANT_TRANSCRIPT_TEMP = "SELECT id, transcript_ids FROM variant_transcript_temp WHERE id BETWEEN ? AND ?";
     private final static String INSERT_VARIANT_TRANSCRIPTS = "INSERT INTO variant_transcript (variant_transcripts_id, transcript_id, most_pathogenic) VALUES (?,?,?)";
+    private final static String SELECT_SOURCE_ID = "SELECT id from source WHERE name=?";
+    private final static String INSERT_VARIANT_SOURCE = "INSERT INTO variant_source (variant_sources_id, source_id) VALUES (?,?)";
 
     /**
      * Insert variant/transcripts relationships given the variant_transcript_temp table
      *
      * @param batchSize
      * @param startId in case a process needs to be re-run from a certain variant_id (instead of starting from the beginning all over again
+     * @param sourceName
      */
-    public static void insertVariantTranscriptRelationships(int batchSize, int startId) {
+    public static void insertVariantTranscriptRelationships(int batchSize, int startId, String sourceName) {
         System.out.println("Inserting Variant Transcript relationships...");
         final StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -26,10 +29,20 @@ public class VariantTranscriptInsertion {
         Config config = new Config();
 
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
-            PreparedStatement countStmt = null;
-            ResultSet resultCount = null;
+            PreparedStatement countStmt = null, selectSourceIdStmt = null;
+            ResultSet resultCount = null, sourceIdResult = null;
             int numberOfRecords = 0;
+            int sourceId = 0;
             try {
+                // get Source id
+                selectSourceIdStmt = connection.prepareStatement(SELECT_SOURCE_ID);
+                selectSourceIdStmt.setString(1, sourceName);
+                sourceIdResult = selectSourceIdStmt.executeQuery();
+                if (sourceIdResult.next()){
+                    sourceId = sourceIdResult.getInt(1);
+                }  else {
+                    System.out.println("error: could not get the source id");
+                }
                 countStmt = connection.prepareStatement(SELECT_COUNT);
                 resultCount = countStmt.executeQuery();
                 if (resultCount.next()) {
@@ -43,6 +56,10 @@ public class VariantTranscriptInsertion {
                     resultCount.close();
                 if (countStmt != null)
                     countStmt.close();
+                if (sourceIdResult != null)
+                    sourceIdResult.close();
+                if (selectSourceIdStmt != null)
+                    selectSourceIdStmt.close();
             }
             System.out.println("Batch size is " + batchSize);
             connection.setAutoCommit(false);
@@ -54,7 +71,7 @@ public class VariantTranscriptInsertion {
                     start = System.currentTimeMillis();
                     variantIdTranscriptIdsMap = selectVariantTranscriptsFromTemp(connection, selectIdx, selectIdx + batchSize - 1);
 
-                    insertVariantTranscriptInBatch(connection, variantIdTranscriptIdsMap);
+                    insertVariantTranscriptInBatch(connection, variantIdTranscriptIdsMap, sourceId);
                     variantIdTranscriptIdsMap.clear();
                     elapsedTimeMillis = System.currentTimeMillis() - start;
                     System.out.println("Progress: " + i + " of " + numberOfRecords + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1));
@@ -65,7 +82,7 @@ public class VariantTranscriptInsertion {
             start = System.currentTimeMillis();
             variantIdTranscriptIdsMap = selectVariantTranscriptsFromTemp(connection, selectIdx, numberOfRecords);
             if (variantIdTranscriptIdsMap.size() > 0) {
-                insertVariantTranscriptInBatch(connection, variantIdTranscriptIdsMap);
+                insertVariantTranscriptInBatch(connection, variantIdTranscriptIdsMap, sourceId);
                 variantIdTranscriptIdsMap.clear();
                 elapsedTimeMillis = System.currentTimeMillis() - start;
                 System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords);
@@ -109,12 +126,13 @@ public class VariantTranscriptInsertion {
         return variantIdTranscriptIdsMap;
     }
 
-    private static void insertVariantTranscriptInBatch(Connection connection, Map<Long, Set<Long>> variantIdTranscriptIdsMap) throws SQLException {
+    private static void insertVariantTranscriptInBatch(Connection connection, Map<Long, Set<Long>> variantIdTranscriptIdsMap, int sourceId) throws SQLException {
         // insert in variant transcript relationship
-        PreparedStatement insertVariantTranscripts = null;
+        PreparedStatement insertVariantTranscripts = null, insertVariantSources = null;
 
         try {
             insertVariantTranscripts = connection.prepareStatement(INSERT_VARIANT_TRANSCRIPTS);
+            insertVariantSources = connection.prepareStatement(INSERT_VARIANT_SOURCE);
 
             connection.setAutoCommit(false);
             for (Map.Entry<Long, Set<Long>> entry : variantIdTranscriptIdsMap.entrySet()) {
@@ -128,16 +146,23 @@ public class VariantTranscriptInsertion {
                     insertVariantTranscripts.setLong(2, itr.next());
                     insertVariantTranscripts.setBoolean(3, idx == 0);
                     insertVariantTranscripts.addBatch();
+
+                    insertVariantSources.setLong(1, variantId);
+                    insertVariantSources.setLong(2, sourceId);
+                    insertVariantSources.addBatch();
                     idx++;
                 }
             }
             insertVariantTranscripts.executeBatch();
+            insertVariantSources.executeBatch();
             connection.commit();
         } catch (SQLException exc) {
             throw exc;
         } finally {
             if (insertVariantTranscripts != null)
                 insertVariantTranscripts.close();
+            if (insertVariantSources != null)
+                insertVariantSources.close();
         }
     }
 }

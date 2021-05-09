@@ -18,6 +18,7 @@ public class App {
         arguments.put("GENO", isGeno);
         arguments.put("batch_size", 100000);
         arguments.put("start_id", 1);
+        arguments.put("source_name", "Sanger V7");
         if (args.length > 1) {
             for (int i = 1; i <= args.length - 1 ; i ++){
                 String[] attribute = args[i].split("=");
@@ -25,6 +26,8 @@ public class App {
                     arguments.put("batch_size", Integer.valueOf(attribute[1]));
                 if (attribute[0].equals("start_id"))
                     arguments.put("start_id", Integer.valueOf(attribute[1]));
+                if (attribute[0].equals("source_name"))
+                    arguments.put("source_name", attribute[1]);
             }
         }
         return arguments;
@@ -99,7 +102,8 @@ public class App {
                 // if REL (=relationship) then we insert all the variant_transcript relationships from the temp table created
                 if ((boolean)arguments.get("REL") && !(boolean)arguments.get("GENO")) {
                     int startId = (int)arguments.get("start_id");
-                    VariantTranscriptInsertion.insertVariantTranscriptRelationships(batchSize, startId);
+                    String sourceName = (String) arguments.get("source_name");
+                    VariantTranscriptInsertion.insertVariantTranscriptRelationships(batchSize, startId, sourceName);
                 } else if ((boolean)arguments.get("GENO") && !(boolean)arguments.get("REL")) {
                     int startId = (int)arguments.get("start_id");
                     String strainFilePath = (String)arguments.get("strain_path");

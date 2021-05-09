@@ -59,16 +59,22 @@ public class VcfParser {
                 // jannovar transcript annotation
                 String jannotation = InfoParser.getAnnotation(columns[7].split(";"), "ANN");
                 // VEP hgvs annotation
-                String hgvsg = ConsequenceParser.getHGVSg(InfoParser.getAnnotation(columns[7].split(";"), "CSQ"), 0);
-
+                String hgvsg = ConsequenceParser.getCSQ(InfoParser.getAnnotation(columns[7].split(";"), "CSQ"), "HGVSg");
+                String rsId;
+                // rsId
+                if ((columns[2] == null)||(columns[2] != null && (columns[2].isEmpty() || columns[2].equals(".")))) {
+                    rsId = ConsequenceParser.getCSQ(InfoParser.getAnnotation(columns[7].split(";"), "CSQ"), "Existing_variation");
+                } else {
+                    rsId = columns[2];
+                }
                 Variant var;
                 if (columns.length > 8) {
                     String[] genotypes = Arrays.copyOfRange(columns, 9, columns.length);
                     String genotypeData = String.join("\t", genotypes);
-                    var = new Variant(columns[0], columns[1], columns[2], columns[3],
+                    var = new Variant(columns[0], columns[1], rsId, columns[3],
                             columns[4], columns[5], columns[6], columns[8], hgvsg, jannotation, genotypeData);
                 } else {
-                    var = new Variant(columns[0], columns[1], columns[2], columns[3],
+                    var = new Variant(columns[0], columns[1], rsId, columns[3],
                             columns[4], columns[5], columns[6], columns[8], hgvsg, jannotation, null);
                 }
                 if (variations.containsKey(var.getVariantRefTxt()))
