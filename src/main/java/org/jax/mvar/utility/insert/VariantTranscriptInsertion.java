@@ -137,8 +137,8 @@ public class VariantTranscriptInsertion {
             connection.setAutoCommit(false);
             for (Map.Entry<Long, Set<Long>> entry : variantIdTranscriptIdsMap.entrySet()) {
                 long variantId = entry.getKey();
+                // insert variant transcript relationship
                 Set<Long> transcriptIds = entry.getValue();
-
                 Iterator<Long> itr = transcriptIds.iterator();
                 int idx = 0;
                 while (itr.hasNext()) {
@@ -146,12 +146,12 @@ public class VariantTranscriptInsertion {
                     insertVariantTranscripts.setLong(2, itr.next());
                     insertVariantTranscripts.setBoolean(3, idx == 0);
                     insertVariantTranscripts.addBatch();
-
-                    insertVariantSources.setLong(1, variantId);
-                    insertVariantSources.setLong(2, sourceId);
-                    insertVariantSources.addBatch();
                     idx++;
                 }
+                // insert variant source relationship
+                insertVariantSources.setLong(1, variantId);
+                insertVariantSources.setLong(2, sourceId);
+                insertVariantSources.addBatch();
             }
             insertVariantTranscripts.executeBatch();
             insertVariantSources.executeBatch();
