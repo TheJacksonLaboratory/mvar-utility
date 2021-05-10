@@ -30,7 +30,6 @@ public class VariantInsertion {
 
     private static int batchSize = 1000;
     private static final String ASSEMBLY = "grcm38";
-    private static final String SOURCE = "Sanger REL2005";
     private InfoParser infoParser = new AnnotationParser();
 
     /**
