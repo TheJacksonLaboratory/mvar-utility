@@ -245,7 +245,11 @@ public class VariantInsertion {
                 String transcriptExistingConcatIds = "", transcriptFeatureConcatIds = "";
                 for (Map<String, String> annotation : annotationParsed) {
                     int idx = annotation.get("Feature_ID").indexOf('.');
-                    String transcriptId = annotation.get("Feature_ID").substring(0, idx);
+                    String transcriptId;
+                    if (idx != -1)
+                        transcriptId = annotation.get("Feature_ID").substring(0, idx);
+                    else
+                        transcriptId = annotation.get("Feature_ID");
                     transcriptExistingConcatIds = transcriptExistingConcatIds.equals("") ? String.valueOf(transcriptRecs.get(transcriptId)) : transcriptExistingConcatIds.concat(",").concat(String.valueOf(transcriptRecs.get(transcriptId)));
                     transcriptFeatureConcatIds = transcriptFeatureConcatIds.equals("") ? transcriptId : transcriptFeatureConcatIds.concat(",").concat(transcriptId);
                 }
