@@ -177,7 +177,9 @@ public class VariantStrainInsertion {
                     insertVariantStrain.setInt(1, variantId);
                     insertVariantStrain.setInt(2, strainIds.get(i));
                     // we parse the first id (GT)
-                    insertVariantStrain.setString(3, geno[i].split(":")[0]);
+                    int idx = geno[i].indexOf(':');
+                    String gtValue = geno[i].substring(0, idx);
+                    insertVariantStrain.setString(3, gtValue);
                     insertVariantStrain.addBatch();
                 }
             }

@@ -4,6 +4,8 @@ package org.jax.mvar.utility.parser;
 import org.eclipse.collections.impl.list.mutable.FastList;
 import org.eclipse.collections.impl.map.mutable.UnifiedMap;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -90,5 +92,27 @@ abstract public class InfoParser {
             }
         }
         return "";
+    }
+
+    /**
+     * Returns the Ann and CSQ annotation as a Map of two values
+     * where the first value is the ANN and the second the CSQ
+     * @param annotations
+     * @return
+     */
+    public static Map<String, String> getANNandCSQ(String[] annotations) {
+        Map<String, String> annAndCSQ = new HashMap<>();
+        for (int i = 0; i < annotations.length; i++) {
+            if (annotations[i].startsWith("ANN")) {
+                annAndCSQ.put("ANN", annotations[i]);
+            }
+            if (annotations[i].startsWith("CSQ")) {
+                annAndCSQ.put("CSQ", annotations[i]);
+            }
+            if (annAndCSQ.size() == 2) {
+                return annAndCSQ;
+            }
+        }
+        return annAndCSQ;
     }
 }

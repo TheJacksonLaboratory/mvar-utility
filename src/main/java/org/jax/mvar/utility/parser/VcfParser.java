@@ -3,6 +3,7 @@ package org.jax.mvar.utility.parser;
 import org.jax.mvar.utility.model.Variant;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
 
@@ -27,7 +28,7 @@ public class VcfParser {
                 // create new input stream reader
                 InputStreamReader instrm = new InputStreamReader(is);
                 // Create the object of BufferedReader object
-                BufferedReader br = new BufferedReader(instrm);
+                BufferedReader br = new BufferedReader(instrm)
             ) {
                 variations = parse(vcfFile.getName(), br);
             }
@@ -35,8 +36,8 @@ public class VcfParser {
             // gzipped read line by line
             try(InputStream is = new FileInputStream(vcfFile.getPath());
                 InputStream gzipStream = new GZIPInputStream(is);
-                Reader decoder = new InputStreamReader(gzipStream, "UTF-8");
-                BufferedReader br = new BufferedReader(decoder);
+                Reader decoder = new InputStreamReader(gzipStream, StandardCharsets.UTF_8);
+                BufferedReader br = new BufferedReader(decoder)
             ) {
                 variations = parse(vcfFile.getName(), br);
             }
@@ -56,26 +57,26 @@ public class VcfParser {
             if (!strLine.startsWith("#")) {
                 String[] columns = strLine.split("\t");
 
-                // jannovar transcript annotation
-                String jannotation = InfoParser.getAnnotation(columns[7].split(";"), "ANN");
+                // jannovar transcript annotation and VEP annotation
+                Map<String, String> jannotationAndCSQ = InfoParser.getANNandCSQ(columns[7].split(";"));
                 // VEP hgvs annotation
-                String hgvsg = ConsequenceParser.getCSQ(InfoParser.getAnnotation(columns[7].split(";"), "CSQ"), "HGVSg");
+                List<String> rsIdAndHgvs = ConsequenceParser.getRsIDAndHGVS(jannotationAndCSQ.get("CSQ"));
                 String rsId;
                 // rsId
-                if ((columns[2] == null)||(columns[2] != null && (columns[2].isEmpty() || columns[2].equals(".")))) {
-                    rsId = ConsequenceParser.getCSQ(InfoParser.getAnnotation(columns[7].split(";"), "CSQ"), "Existing_variation");
+                if (columns[2].isEmpty() || columns[2].equals(".")) {
+                    rsId = rsIdAndHgvs != null ? rsIdAndHgvs.get(0) : columns[2];
                 } else {
                     rsId = columns[2];
                 }
                 Variant var;
-                if (columns.length > 8) {
+                if (columns.length > 7) {
                     String[] genotypes = Arrays.copyOfRange(columns, 9, columns.length);
                     String genotypeData = String.join("\t", genotypes);
                     var = new Variant(columns[0], columns[1], rsId, columns[3],
-                            columns[4], columns[5], columns[6], columns[8], hgvsg, jannotation, genotypeData);
+                            columns[4], columns[5], columns[6], columns[8], rsIdAndHgvs.get(1), jannotationAndCSQ.get("ANN"), genotypeData);
                 } else {
                     var = new Variant(columns[0], columns[1], rsId, columns[3],
-                            columns[4], columns[5], columns[6], columns[8], hgvsg, jannotation, null);
+                            columns[4], columns[5], columns[6], "", rsIdAndHgvs.get(1), jannotationAndCSQ.get("ANN"), null);
                 }
                 if (variations.containsKey(var.getVariantRefTxt()))
                     System.out.println(var.getVariantRefTxt() + " already exists and will be overridden.");

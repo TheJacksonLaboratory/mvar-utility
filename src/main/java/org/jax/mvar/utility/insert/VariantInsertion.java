@@ -237,9 +237,6 @@ public class VariantInsertion {
             insertGenotypeTemp = connection.prepareStatement(GENOTYPE_TEMP);
 
             for (Variant variant : batchOfVars) {
-                // retrieve values TODO
-                String strainName = "";
-
                 // insert into canonical table
                 insertCanonVariants.setString(1, variant.getVariantRefTxt());
                 insertCanonVariants.addBatch();
@@ -248,7 +245,8 @@ public class VariantInsertion {
                 annotationParsed = infoParser.parse(variant.getAnnotation());
                 String transcriptExistingConcatIds = "", transcriptFeatureConcatIds = "";
                 for (Map<String, String> annotation : annotationParsed) {
-                    String transcriptId = annotation.get("Feature_ID").split("\\.")[0];
+                    int idx = annotation.get("Feature_ID").indexOf('.');
+                    String transcriptId = annotation.get("Feature_ID").substring(0, idx);
                     transcriptExistingConcatIds = transcriptExistingConcatIds.equals("") ? String.valueOf(transcriptRecs.get(transcriptId)) : transcriptExistingConcatIds.concat(",").concat(String.valueOf(transcriptRecs.get(transcriptId)));
                     transcriptFeatureConcatIds = transcriptFeatureConcatIds.equals("") ? transcriptId : transcriptFeatureConcatIds.concat(",").concat(transcriptId);
                 }

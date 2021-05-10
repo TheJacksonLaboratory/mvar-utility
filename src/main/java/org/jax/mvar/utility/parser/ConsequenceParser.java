@@ -1,5 +1,6 @@
 package org.jax.mvar.utility.parser;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -40,5 +41,23 @@ public class ConsequenceParser extends InfoParser {
             return consequence.split("\\|")[idx];
         }
         return "";
+    }
+
+    /**
+     * Returns the rs Id parsed from the given consequence string
+     * @param consequence Vep annotation string
+     * @return a list of two values : 1rst is rsId and 2nd is hgvs
+     */
+    public static List<String> getRsIDAndHGVS(String consequence) throws Exception {
+        int rsIdIdx = ANNOTATION_KEYS.indexOf("Existing_variation");
+        int hgvsIdx = ANNOTATION_KEYS.indexOf("HGVSg");
+        if (consequence != null && !consequence.isEmpty()) {
+            List<String> result = new ArrayList<>();
+            String[] csqs = consequence.split("\\|");
+            result.add(csqs[rsIdIdx]);
+            result.add(csqs[hgvsIdx]);
+            return result;
+        }
+        return null;
     }
 }

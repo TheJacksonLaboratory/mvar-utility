@@ -31,9 +31,9 @@ public class Variant {
         this.alt = alt;
         this.qual = qual;
         this.filter = filter;
+        this.format = format;
         this.hgvsg = hgvsg;
         this.jannovarAnnotation = jannovarAnnotation;
-        this.format = format;
         this.genotypeData = genotypeData;
         this.variantRefTxt = chr.concat("_").concat(pos).concat("_").concat(ref).concat("_").concat(alt);
         setType(this.ref, this.alt);
