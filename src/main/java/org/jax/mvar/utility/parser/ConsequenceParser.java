@@ -55,7 +55,14 @@ public class ConsequenceParser extends InfoParser {
             List<String> result = new ArrayList<>();
             String[] csqs = consequence.split("\\|");
             result.add(csqs[rsIdIdx]);
-            result.add(csqs[hgvsIdx]);
+            String hgvsg;
+            if (csqs[hgvsIdx].contains(":")) {
+                // we remove the suffix with "chr:" if any
+                hgvsg = csqs[hgvsIdx].split(":")[1];
+            } else {
+                hgvsg = csqs[hgvsIdx];
+            }
+            result.add(hgvsg);
             return result;
         }
         return null;
