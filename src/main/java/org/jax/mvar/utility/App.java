@@ -119,11 +119,11 @@ public class App {
                         Arrays.sort(files);
                         for (File file : files) {
                             if (file.isFile() && (file.getName().endsWith(".gz") || (file.getName().endsWith(".vcf"))))
-                                insertService.loadVCF(file, batchSize);
+                                insertService.loadVCF(file, batchSize, false);
                         }
 
                     } else if (f.isFile() && (f.getName().endsWith(".gz") || (f.getName().endsWith(".vcf")))) {
-                        insertService.loadVCF(f, batchSize);
+                        insertService.loadVCF(f, batchSize, false);
                     } else {
                         throw new Exception("Could not find file or directory : " + f.getPath());
                     }

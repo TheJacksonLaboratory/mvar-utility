@@ -38,16 +38,17 @@ public class VariantInsertion {
      * @param vcfFile     VCF file, can be gzipped or vcf format
      * @param batchNumber a batch number of 1000 is advised if enough memory (7G) is allocated to the JVM
      *                    Ultimately, the batch number depends on the File size and the JVM max and min memory
+     * @param checkForCanon
      */
-    public void loadVCF(File vcfFile, int batchNumber) {
+    public void loadVCF(File vcfFile, int batchNumber, boolean checkForCanon) {
         batchSize = batchNumber;
         System.out.println("Batch size = " + batchSize );
 
-        // get Properties
-        Config config = new Config();
-        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
+        try {
+            // parse variants into a Map
+            LinkedHashMap<String, Variant> variations = VcfParser.parseVcf(vcfFile, checkForCanon);
             // Persist data
-            persistData(connection, vcfFile);
+            persistData(variations);
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("An exception was caught: " + e.getMessage());
@@ -55,10 +56,9 @@ public class VariantInsertion {
     }
 
     /**
-     * 1. parse the vcf -- by chromosome ,
+     * 1. parse the vcf -- The search for duplicates is done at the parsing stage
      * 2. Persist canonicals
      * 3. persist variants
-     * 4. TODO persist variant/transcript associations
      * - canonical
      * - strain
      * - gene
@@ -66,20 +66,20 @@ public class VariantInsertion {
      * - external ids
      * 5. construct search doc -- TODO: possible search docs for speed querying of data in site
      *
-     * @param connection jdbc connection
-     * @param vcfFile    file
+     * @param variations
      */
-    private void persistData(Connection connection, File vcfFile) throws Exception {
-        final StopWatch stopWatch = new StopWatch();
-        stopWatch.start();
+    private void persistData(LinkedHashMap<String, Variant> variations) throws Exception {
+        // get Properties
+        Config config = new Config();
+        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
+            final StopWatch stopWatch = new StopWatch();
+            stopWatch.start();
 
-        // parse variants into a Map
-        LinkedHashMap<String, Variant> variations = VcfParser.parseVcf(vcfFile);
-        // insert variants parsed
-        insertVariantsBatch(connection, variations);
-        System.out.println(variations.keySet().size() + " inserted in " + stopWatch + ", " + new Date());
-        stopWatch.reset();
-
+            // insert variants parsed
+            insertVariantsBatch(connection, variations);
+            System.out.println(variations.keySet().size() + " inserted in " + stopWatch + ", " + new Date());
+            stopWatch.reset();
+        }
     }
 
     /**

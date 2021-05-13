@@ -8,7 +8,7 @@ import java.sql.*;
 import java.util.*;
 
 public class VariantStrainInsertion {
-
+    private static int numberOfRecords = 0;
     private final static String SELECT_STRAIN_IDS = "SELECT id from strain where name like ?";
     private final static String SELECT_COUNT = "SELECT COUNT(*) from genotype_temp;";
     private final static String SELECT_GENOTYPE_TEMP = "SELECT id, format, genotype_data FROM genotype_temp WHERE id BETWEEN ? AND ?";
@@ -32,28 +32,31 @@ public class VariantStrainInsertion {
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
 
             List<Integer> strainIds = getStrainIds(connection, strainFilePath);
-            System.out.println();
-            // count all genotypes data saved
-            PreparedStatement countStmt = null;
-            ResultSet resultCount = null;
-            int numberOfRecords = 0;
-            try {
-                countStmt = connection.prepareStatement(SELECT_COUNT);
-                resultCount = countStmt.executeQuery();
-                if (resultCount.next()) {
-                    numberOfRecords = resultCount.getInt(1);
-                    System.out.println("NumberOfRows = " + numberOfRecords);
-                } else {
-                    System.out.println("error: could not get the record counts");
+
+            if (numberOfRecords == 0) {
+                // count all genotypes data saved
+                PreparedStatement countStmt = null;
+                ResultSet resultCount = null;
+                try {
+                    countStmt = connection.prepareStatement(SELECT_COUNT);
+                    resultCount = countStmt.executeQuery();
+                    if (resultCount.next()) {
+                        numberOfRecords = resultCount.getInt(1);
+                        System.out.println("NumberOfRows = " + numberOfRecords);
+                    } else {
+                        System.out.println("error: could not get the record counts");
+                    }
+                } finally {
+                    if (resultCount != null)
+                        resultCount.close();
+                    if (countStmt != null)
+                        countStmt.close();
                 }
-            } finally {
-                if (resultCount != null)
-                    resultCount.close();
-                if (countStmt != null)
-                    countStmt.close();
+            } else {
+                System.out.println("NumberOfRows = " + numberOfRecords);
             }
+
             System.out.println("Batch size is " + batchSize);
-            VariantInsertion.innoDBSetOptions(connection, false);
             int selectIdx = startId;
             long start, elapsedTimeMillis;
             Map<Integer, String[]> variantIdGenotypeMap;
@@ -78,8 +81,6 @@ public class VariantStrainInsertion {
                 elapsedTimeMillis = System.currentTimeMillis() - start;
                 System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords);
             }
-            // time
-            VariantInsertion.innoDBSetOptions(connection, true);
 
             System.out.println("Variant/Strain relationships and genotype data inserted in " + stopWatch);
         } catch (SQLException exc) {
@@ -166,7 +167,7 @@ public class VariantStrainInsertion {
 
         try {
             insertVariantStrain = connection.prepareStatement(INSERT_VARIANT_STRAIN);
-
+            VariantInsertion.innoDBSetOptions(connection, false);
             connection.setAutoCommit(false);
             for (Map.Entry<Integer, String[]> entry : variantIdGenotypeMap.entrySet()) {
                 int variantId = entry.getKey();
@@ -190,6 +191,8 @@ public class VariantStrainInsertion {
         } finally {
             if (insertVariantStrain != null)
                 insertVariantStrain.close();
+            VariantInsertion.innoDBSetOptions(connection, true);
+            connection.setAutoCommit(true);
         }
     }
 
