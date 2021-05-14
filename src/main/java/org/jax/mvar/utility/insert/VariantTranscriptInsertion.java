@@ -21,7 +21,7 @@ public class VariantTranscriptInsertion {
      * @param startId in case a process needs to be re-run from a certain variant_id (instead of starting from the beginning all over again
      * @param sourceName
      */
-    public static void insertVariantTranscriptSourceRel(int batchSize, int startId, String sourceName) {
+    public static void insertVariantTranscriptSourceRel(int batchSize, int startId, String sourceName) throws Exception {
         System.out.println("Inserting Variant Transcript relationships...");
         final StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -64,7 +64,7 @@ public class VariantTranscriptInsertion {
         }
     }
 
-    private static int getSourceId(Connection connection, String sourceName) throws SQLException {
+    private static int getSourceId(Connection connection, String sourceName) throws Exception {
         PreparedStatement selectSourceIdStmt = null;
         ResultSet sourceIdResult = null;
         int sourceId = 0;
@@ -75,6 +75,10 @@ public class VariantTranscriptInsertion {
             sourceIdResult = selectSourceIdStmt.executeQuery();
             if (sourceIdResult.next()){
                 sourceId = sourceIdResult.getInt(1);
+                // if the value returned is 0, it means the result was a SQL NULL
+                if (sourceId == 0)
+                    throw new Exception("Error: the source Name given couldn't be found in the database. " +
+                            "Please add the new source name to the database in order to use this source.");
             }  else {
                 System.out.println("error: could not get the source id");
             }
