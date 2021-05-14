@@ -103,7 +103,7 @@ public class App {
                 if ((boolean)arguments.get("REL") && !(boolean)arguments.get("GENO")) {
                     int startId = (int)arguments.get("start_id");
                     String sourceName = (String) arguments.get("source_name");
-                    VariantTranscriptInsertion.insertVariantTranscriptRelationships(batchSize, startId, sourceName);
+                    VariantTranscriptInsertion.insertVariantTranscriptSourceRel(batchSize, startId, sourceName);
                 } else if ((boolean)arguments.get("GENO") && !(boolean)arguments.get("REL")) {
                     int startId = (int)arguments.get("start_id");
                     String strainFilePath = (String)arguments.get("strain_path");
