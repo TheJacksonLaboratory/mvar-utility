@@ -21,12 +21,10 @@ public class VariantInsertion {
 
     private Map<String, String[]> newTranscriptsMap;
 
-    private final static List<String> MOUSE_CHROMOSOMES = Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "X", "Y", "MT");
     private final static List<String> VARIANT_TYPES = Arrays.asList("SNP", "DEL", "INS");
-    private final static String[] STRAIN_LIST = { "129P2/OlaHsd", "129S1/SvImJ", "129S5/SvEvBrd", "AKR/J", "A/J",  "BALB/cJ", "BTBR T<+> Itpr3<tf>/J", "BUB/BnJ", "C3H/HeH", "C3H/HeJ", "C57BL/10J", "C57BL/6NJ", "C57BR/cdJ", "C57L/J", "C58/J", "CAST/EiJ", "CBA/J", "DBA/1J", "DBA/2J", "FVB/NJ", "I/LnJ", "JF1/MsJ", "KK/HlJ", "LEWES/EiJ", "LG/J", "LP/J", "MOLF/EiJ", "NOD/ShiLtJ", "NZB/B1NJ", "NZO/HlLtJ", "NZW/LacJ", "PL/J", "PWK/PhJ", "QSi3", "QSi5", "RF/J", "SEA/GnJ", "SJL/J", "SM/J", "SPRET/EiJ", "ST_bJ", "WSB/EiJ", "ZALENDE/EiJ" };
 
-    private static final String VARIANT_CANON_INSERT = "insert into variant_canon_identifier (version, chr, position, ref, alt, variant_ref_txt) VALUES (0,?,?,?,?,?)";
-    private static final String VARIANT_INSERT = "insert into variant (chr, position, alt, ref, type, functional_class_code, assembly, parent_ref_ind, parent_variant_ref_txt, variant_ref_txt, variant_hgvs_notation, dna_hgvs_notation, protein_hgvs_notation, impact, canon_var_identifier_id, gene_id, strain_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    private static final String VARIANT_CANON_INSERT = "insert into variant_canon_identifier (variant_ref_txt) VALUES (?)";
+    private static final String VARIANT_INSERT = "insert into variant (accession, chr, position, alt, ref, type, functional_class_code, assembly, parent_ref_ind, variant_ref_txt, variant_hgvs_notation, dna_hgvs_notation, protein_hgvs_notation, impact, canon_var_identifier_id, gene_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     private static final String VARIANT_TRANSCRIPT_TEMP = "insert into variant_transcript_temp (variant_ref_txt, transcript_ids, transcript_feature_ids) VALUES (?,?,?)";
     private static final String GENOTYPE_TEMP = "insert into genotype_temp (format, genotype_data) VALUES (?,?)";
 
@@ -40,16 +38,17 @@ public class VariantInsertion {
      * @param vcfFile     VCF file, can be gzipped or vcf format
      * @param batchNumber a batch number of 1000 is advised if enough memory (7G) is allocated to the JVM
      *                    Ultimately, the batch number depends on the File size and the JVM max and min memory
+     * @param checkForCanon
      */
-    public void loadVCF(File vcfFile, int batchNumber) {
+    public void loadVCF(File vcfFile, int batchNumber, boolean checkForCanon) {
         batchSize = batchNumber;
         System.out.println("Batch size = " + batchSize );
 
-        // get Properties
-        Config config = new Config();
-        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
+        try {
+            // parse variants into a Map
+            LinkedHashMap<String, Variant> variations = VcfParser.parseVcf(vcfFile, checkForCanon);
             // Persist data
-            persistData(connection, vcfFile);
+            persistData(variations);
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("An exception was caught: " + e.getMessage());
@@ -57,10 +56,9 @@ public class VariantInsertion {
     }
 
     /**
-     * 1. parse the vcf -- by chromosome ,
+     * 1. parse the vcf -- The search for duplicates is done at the parsing stage
      * 2. Persist canonicals
      * 3. persist variants
-     * 4. TODO persist variant/transcript associations
      * - canonical
      * - strain
      * - gene
@@ -68,20 +66,20 @@ public class VariantInsertion {
      * - external ids
      * 5. construct search doc -- TODO: possible search docs for speed querying of data in site
      *
-     * @param connection jdbc connection
-     * @param vcfFile    file
+     * @param variations
      */
-    private void persistData(Connection connection, File vcfFile) throws Exception {
-        final StopWatch stopWatch = new StopWatch();
-        stopWatch.start();
+    private void persistData(LinkedHashMap<String, Variant> variations) throws Exception {
+        // get Properties
+        Config config = new Config();
+        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
+            final StopWatch stopWatch = new StopWatch();
+            stopWatch.start();
 
-        // parse variants into a Map
-        LinkedHashMap<String, Variant> variations = VcfParser.parseVcf(vcfFile);
-        // insert variants parsed
-        insertVariantsBatch(connection, variations);
-        System.out.println(variations.keySet().size() + " inserted in " + stopWatch + ", " + new Date());
-        stopWatch.reset();
-
+            // insert variants parsed
+            insertVariantsBatch(connection, variations);
+            System.out.println(variations.keySet().size() + " inserted in " + stopWatch + ", " + new Date());
+            stopWatch.reset();
+        }
     }
 
     /**
@@ -238,22 +236,20 @@ public class VariantInsertion {
             insertGenotypeTemp = connection.prepareStatement(GENOTYPE_TEMP);
 
             for (Variant variant : batchOfVars) {
-                // retrieve values TODO
-                String strainName = "";
-
                 // insert into canonical table
-                insertCanonVariants.setString(1, variant.getChr());
-                insertCanonVariants.setInt(2, Integer.parseInt(variant.getPos()));
-                insertCanonVariants.setString(3, variant.getRef());
-                insertCanonVariants.setString(4, variant.getAlt());
-                insertCanonVariants.setString(5, variant.getVariantRefTxt());
+                insertCanonVariants.setString(1, variant.getVariantRefTxt());
                 insertCanonVariants.addBatch();
 
                 // get jannovar info
                 annotationParsed = infoParser.parse(variant.getAnnotation());
                 String transcriptExistingConcatIds = "", transcriptFeatureConcatIds = "";
                 for (Map<String, String> annotation : annotationParsed) {
-                    String transcriptId = annotation.get("Feature_ID").split("\\.")[0];
+                    int idx = annotation.get("Feature_ID").indexOf('.');
+                    String transcriptId;
+                    if (idx != -1)
+                        transcriptId = annotation.get("Feature_ID").substring(0, idx);
+                    else
+                        transcriptId = annotation.get("Feature_ID");
                     transcriptExistingConcatIds = transcriptExistingConcatIds.equals("") ? String.valueOf(transcriptRecs.get(transcriptId)) : transcriptExistingConcatIds.concat(",").concat(String.valueOf(transcriptRecs.get(transcriptId)));
                     transcriptFeatureConcatIds = transcriptFeatureConcatIds.equals("") ? transcriptId : transcriptFeatureConcatIds.concat(",").concat(transcriptId);
                 }
@@ -278,20 +274,20 @@ public class VariantInsertion {
                     geneId = getGeneBySynonyms(connection, geneSynonymRecs, geneName);
                 }
 
-                insertVariants.setString(1, variant.getChr());
-                insertVariants.setInt(2, Integer.parseInt(variant.getPos()));
-                insertVariants.setString(3, variant.getAlt());
-                insertVariants.setString(4, variant.getRef());
-                insertVariants.setString(5, variant.getType());
+                insertVariants.setString(1, variant.getId());
+                insertVariants.setString(2, variant.getChr());
+                insertVariants.setInt(3, Integer.parseInt(variant.getPos()));
+                insertVariants.setString(4, variant.getAlt());
+                insertVariants.setString(5, variant.getRef());
+                insertVariants.setString(6, variant.getType());
                 String concatenations = concatenate(annotationParsed, "Annotation");
                 if (concatenations == null)
-                    insertVariants.setNull(6, Types.VARCHAR);
+                    insertVariants.setNull(7, Types.VARCHAR);
                 else
-                    insertVariants.setString(6, concatenations);
-                insertVariants.setString(7, ASSEMBLY);
-                insertVariants.setBoolean(8, true);
+                    insertVariants.setString(7, concatenations);
+                insertVariants.setString(8, ASSEMBLY);
+                insertVariants.setBoolean(9, true);
                 // for now we put the variantRefTxt in ParentVarRef too as we are inserting variants with assembly 38 already (no liftover)
-                insertVariants.setString(9, variant.getVariantRefTxt());
                 insertVariants.setString(10, variant.getVariantRefTxt());
                 insertVariants.setString(11, variant.getHgvsg());
                 concatenations = concatenate(annotationParsed, "HGVS.c");
@@ -314,7 +310,6 @@ public class VariantInsertion {
                     insertVariants.setNull(16, Types.BIGINT);
                 else
                     insertVariants.setLong(16, geneId);
-                insertVariants.setString(17, strainName);
                 insertVariants.addBatch();
 
                 canonIdx++;
