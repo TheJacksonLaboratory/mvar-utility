@@ -9,7 +9,8 @@ import java.util.*;
 
 public class VariantStrainInsertion {
     private static int numberOfRecords = 0;
-    private final static String SELECT_STRAIN_IDS = "SELECT id from strain where name like ?";
+    private final static String SELECT_STRAIN_IDS = "SELECT id, name from strain where name like ?";
+    private final static String INSERT_MVAR_STRAINS = "INSERT INTO mvar_strains (name, strain_id)  VALUES (?, ?)";
     private final static String SELECT_COUNT = "SELECT COUNT(*) from genotype_temp;";
     private final static String SELECT_GENOTYPE_TEMP = "SELECT id, format, genotype_data FROM genotype_temp WHERE id BETWEEN ? AND ?";
     private final static String INSERT_GENOTYPE = "INSERT INTO genotype (format, data, variant_id, strain_id) VALUES (?, ?, ?, ?)";
@@ -105,9 +106,10 @@ public class VariantStrainInsertion {
         }
 
         // collect the list of all the strain ids given the list of strain names for the Sanger data
-        PreparedStatement strainIdStmt = null;
+        PreparedStatement strainIdStmt = null, insertStrainsStmt = null;
         ResultSet resultStrainIds = null;
-        List<Integer> strainIds = new ArrayList<Integer>();
+        List<Integer> strainIds = new ArrayList<>();
+        List<String> strainNames = new ArrayList<>();
         String strStrainIds = "";
         for (int i = 0; i < strains.size(); i++) {
             try {
@@ -116,7 +118,9 @@ public class VariantStrainInsertion {
                 resultStrainIds = strainIdStmt.executeQuery();
                 if (resultStrainIds.next()) {
                     int id = resultStrainIds.getInt("id");
+                    String name = resultStrainIds.getString("name");
                     strainIds.add(id);
+                    strainNames.add(name);
                     strStrainIds = strStrainIds + ":" + id;
                 }
             }  catch (SQLException exc) {
@@ -128,6 +132,24 @@ public class VariantStrainInsertion {
                     strainIdStmt.close();
             }
         }
+        // insert new strains
+        insertStrainsStmt = connection.prepareStatement(INSERT_MVAR_STRAINS);
+        try {
+            for (int i = 0; i < strainIds.size(); i++) {
+                // insert id into strain table (MVAR strains)
+                insertStrainsStmt.setString(1, strainNames.get(i));
+                insertStrainsStmt.setInt(2, strainIds.get(i));
+                insertStrainsStmt.addBatch();
+            }
+            insertStrainsStmt.executeBatch();
+//            connection.commit();
+        } catch (SQLException exc) {
+            throw exc;
+        } finally {
+            if (insertStrainsStmt != null)
+                insertStrainsStmt.close();
+        }
+
         System.out.println("The list of strain Ids is the following : " + strStrainIds);
         return strainIds;
     }
@@ -172,16 +194,18 @@ public class VariantStrainInsertion {
             for (Map.Entry<Integer, String[]> entry : variantIdGenotypeMap.entrySet()) {
                 int variantId = entry.getKey();
                 String[] geno = entry.getValue();
-                for (int i = 0; i < geno.length; i ++) {
+                for (int i = 0; i < geno.length; i++) {
                     // if there is a genotype data for the strain
-//                  if (!geno[i].startsWith("./.") && !geno[i].startsWith("0/0")) {
-                    insertVariantStrain.setInt(1, variantId);
-                    insertVariantStrain.setInt(2, strainIds.get(i));
-                    // we parse the first id (GT)
-                    int idx = geno[i].indexOf(':');
-                    String gtValue = geno[i].substring(0, idx);
-                    insertVariantStrain.setString(3, gtValue);
-                    insertVariantStrain.addBatch();
+                    // we don't add the entry if 0/0
+                    if (!geno[i].startsWith("0/0")) {
+                        insertVariantStrain.setInt(1, variantId);
+                        insertVariantStrain.setInt(2, strainIds.get(i));
+                        // we parse the first id (GT)
+                        int idx = geno[i].indexOf(':');
+                        String gtValue = geno[i].substring(0, idx);
+                        insertVariantStrain.setString(3, gtValue);
+                        insertVariantStrain.addBatch();
+                    }
                 }
             }
             insertVariantStrain.executeBatch();
