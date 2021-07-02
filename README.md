@@ -65,7 +65,7 @@ This application is used to :
     Before inserting the strain/variant relationship, make sure that the list of strain names in the strain file that you have 
    (list of strains/individuals pulled from dataset) does exist in the Strain table. For example, the following strains QSi3, Qsi5 and B10.RIII are not in the strain list pulled from Mousemine and have to be added manually. The variant/strain relationships are added with the "GENO" parameter (we know whether there is a variant for a certain strain by parsing the genotype information in the VCF data). A required parameter is "strain_path" which points to a text file with the list of strains in the DB (separated by carriage returns):
     <code>
-       java -jar mvar-utility-all.jar GENO batch_size="integer" start_id="integer" strain_path=/path/to/strain_file.txt
+       java -jar mvar-utility-all.jar GENO strain_path=/path/to/strain_file.txt batch_size="integer" start_id="integer"
     </code>
 
     where batch_size is optional (1000000 by default) and start_id is optional (1 by default).
