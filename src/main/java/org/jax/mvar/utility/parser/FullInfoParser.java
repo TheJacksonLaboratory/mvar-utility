@@ -1,5 +1,6 @@
 package org.jax.mvar.utility.parser;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,19 +15,20 @@ class FullInfoParser {
      * ##INFO=<ID=DP4,Number=4,Type=Integer,Description="Total Number of high-quality ref-fwd, ref-reverse, alt-fwd and alt-reverse bases">
      * ##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
      * ##INFO=<ID=SVANN,Number=1,Type=String,Description="Functional SV Annotation:'Annotation|Annotation_Impact|Gene_Name|Gene_ID|Feature_Type|Feature_ID|Transcript_BioType|ERRORS / WARNINGS / INFO'">
+     * @param file
      * @param infoString
      */
-    FullInfoParser(String infoString) throws Exception {
+    FullInfoParser(File file, String infoString) throws Exception {
         infosDataMap = new HashMap<>();
-        AnnotationParser annParser = new AnnotationParser();
+        AnnotationParser annParser = new AnnotationParser(file);
         infosDataMap.put("ANN", annParser.parse(infoString));
-        ConsequenceParser csqParser = new ConsequenceParser();
+        ConsequenceParser csqParser = new ConsequenceParser(file);
         infosDataMap.put("CSQ", csqParser.parse(infoString));
-        DP4Parser dp4Parser = new DP4Parser();
+        DP4Parser dp4Parser = new DP4Parser(file);
         infosDataMap.put("DP4", dp4Parser.parse(infoString));
-        DPParser dpParser = new DPParser();
+        DPParser dpParser = new DPParser(file);
         infosDataMap.put("DP", dpParser.parse(infoString));
-        SvAnnotationParser svAnnotParser = new SvAnnotationParser();
+        SvAnnotationParser svAnnotParser = new SvAnnotationParser(file);
         infosDataMap.put("SVANN", svAnnotParser.parse(infoString));
     }
 

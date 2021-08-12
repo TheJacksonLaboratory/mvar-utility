@@ -1,11 +1,21 @@
 package org.jax.mvar.utility.parser;
 
+import java.io.File;
 import java.util.*;
 
 /**
  * ##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
  */
 class DPParser extends InfoParser {
+
+    /**
+     * Constructor
+     *
+     * @param file
+     */
+    public DPParser(File file) {
+        super(file);
+    }
 
     @Override
     public String getInfoId() {

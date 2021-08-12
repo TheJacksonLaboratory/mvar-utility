@@ -4,6 +4,7 @@ package org.jax.mvar.utility.parser;
 import org.eclipse.collections.impl.list.mutable.FastList;
 import org.eclipse.collections.impl.map.mutable.UnifiedMap;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,7 +22,16 @@ import java.util.Map;
  */
 abstract public class InfoParser {
 
+    String header;
     String[] infos;
+
+    /**
+     * Constructor
+     * @param file
+     */
+    public InfoParser(File file) {
+        this.header = ParserUtils.getHeader(file);
+    }
 
     /**
      * Returns the ID for the INFO column. To be implemented in child class.
@@ -33,7 +43,7 @@ abstract public class InfoParser {
      * Returns the expected length of this functional annotation
      * @return
      */
-    int getInfoLength() {
+    int getInfoLength() throws Exception {
         return getAnnotationKeys().size();
     }
 
@@ -76,8 +86,11 @@ abstract public class InfoParser {
     /**
      * List of annotation keys for the given implementation
      * @return
+     * @throws Exception
      */
-    abstract public List<String> getAnnotationKeys();
+    public List<String> getAnnotationKeys() throws Exception {
+        return ParserUtils.getAnnotationKeys(getInfoId(), this.header);
+    }
 
     /**
      *

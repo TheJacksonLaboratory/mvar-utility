@@ -1,6 +1,6 @@
 package org.jax.mvar.utility.parser;
 
-import java.util.Arrays;
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 
@@ -20,6 +20,15 @@ import java.util.Map;
  */
 public class AnnotationParser extends InfoParser {
 
+    /**
+     * Constructor
+     *
+     * @param file
+     */
+    public AnnotationParser(File file) {
+        super(file);
+    }
+
     @Override
     public String getInfoId() {
         return "ANN";
@@ -29,12 +38,5 @@ public class AnnotationParser extends InfoParser {
     public List<Map<String, String>> parse(String infoString) throws Exception {
         // Functional annotations: Allele|Annotation|Annotation_Impact|Gene_Name|Gene_ID|Feature_Type|Feature_ID|Transcript_BioType|Rank|HGVS.c|HGVS.p|cDNA.pos / cDNA.length|CDS.pos / CDS.length|AA.pos / AA.length|Distance|ERRORS / WARNINGS / INFO'
         return super.parse(infoString);
-    }
-
-    public List<String> getAnnotationKeys() {
-        return Arrays.asList("Allele", "Annotation", "Annotation_Impact", "Gene_Name", "Gene_ID",
-                "Feature_Type", "Feature_ID", "Transcript_BioType", "Rank", "HGVS.c",
-                "HGVS.p", "cDNA.pos / cDNA.length", "CDS.pos / CDS.length", "AA.pos / AA.length",
-                "Distance", "ERRORS / WARNINGS / INFO");
     }
 }

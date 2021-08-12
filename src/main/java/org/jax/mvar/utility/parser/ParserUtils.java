@@ -1,11 +1,7 @@
 package org.jax.mvar.utility.parser;
 
-import org.eclipse.collections.impl.bag.strategy.mutable.HashBagWithHashingStrategy;
-import org.jax.mvar.utility.model.Variant;
-
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;

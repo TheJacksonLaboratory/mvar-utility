@@ -1,11 +1,21 @@
 package org.jax.mvar.utility.parser;
 
+import java.io.File;
 import java.util.*;
 
 /**
  * ##INFO=<ID=DP4,Number=4,Type=Integer,Description="Total Number of high-quality ref-fwd, ref-reverse, alt-fwd and alt-reverse bases">
  */
 class DP4Parser extends InfoParser {
+
+    /**
+     * Constructor
+     *
+     * @param file
+     */
+    public DP4Parser(File file) {
+        super(file);
+    }
 
     @Override
     public String getInfoId() {
