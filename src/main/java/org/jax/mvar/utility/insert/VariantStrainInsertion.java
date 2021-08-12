@@ -2,6 +2,7 @@ package org.jax.mvar.utility.insert;
 
 import org.apache.commons.lang3.time.StopWatch;
 import org.jax.mvar.utility.Config;
+import org.jax.mvar.utility.parser.ParserUtils;
 
 import java.io.*;
 import java.sql.*;
@@ -9,12 +10,6 @@ import java.util.*;
 
 public class VariantStrainInsertion {
     private static int numberOfRecords = 0;
-    private final static String SELECT_STRAIN_IDS = "SELECT id, name from strain where name like ?";
-    private final static String INSERT_MVAR_STRAINS = "INSERT INTO mvar_strains (name, strain_id)  VALUES (?, ?)";
-    private final static String SELECT_COUNT = "SELECT COUNT(*) from genotype_temp;";
-    private final static String SELECT_GENOTYPE_TEMP = "SELECT id, format, genotype_data FROM genotype_temp WHERE id BETWEEN ? AND ?";
-    private final static String INSERT_GENOTYPE = "INSERT INTO genotype (format, data, variant_id, strain_id) VALUES (?, ?, ?, ?)";
-    private final static String INSERT_VARIANT_STRAIN = "INSERT INTO variant_strain (variant_id, strain_id, genotype) VALUES (?, ?, ?)";
 
     /**
      * Insert variant/transcripts relationships given the variant_transcript_temp table
@@ -32,14 +27,14 @@ public class VariantStrainInsertion {
 
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
 
-            List<Integer> strainIds = getStrainIds(connection, strainFilePath);
+            List<Integer> strainIds = ParserUtils.getStrainIds(connection, new File(strainFilePath));
 
             if (numberOfRecords == 0) {
                 // count all genotypes data saved
                 PreparedStatement countStmt = null;
                 ResultSet resultCount = null;
                 try {
-                    countStmt = connection.prepareStatement(SELECT_COUNT);
+                    countStmt = connection.prepareStatement("SELECT COUNT(*) from genotype_temp;");
                     resultCount = countStmt.executeQuery();
                     if (resultCount.next()) {
                         numberOfRecords = resultCount.getInt(1);
@@ -84,74 +79,9 @@ public class VariantStrainInsertion {
             }
 
             System.out.println("Variant/Strain relationships and genotype data inserted in " + stopWatch);
-        } catch (SQLException exc) {
+        } catch (Exception exc) {
             exc.printStackTrace();
         }
-    }
-
-    private static List<Integer> getStrainIds(Connection connection, String strainFilePath) throws SQLException {
-        // Collect list of strains from strainFile
-        // get the file names from a list a the chromosome file names is not in the wanted order
-        final List<String> strains = new ArrayList<>();
-        try {
-            try (BufferedReader in = new BufferedReader(new FileReader(new File(strainFilePath)))) {
-                String line = in.readLine(); // read a line at a time
-                while (line != null) { // loop till you have no more lines
-                    strains.add(line); // add the line to your list
-                    line = in.readLine(); // try to read another line
-                }
-            }
-        }catch (Exception exc) {
-            System.out.println(exc.getMessage());
-        }
-
-        // collect the list of all the strain ids given the list of strain names for the Sanger data
-        PreparedStatement strainIdStmt = null, insertStrainsStmt = null;
-        ResultSet resultStrainIds = null;
-        List<Integer> strainIds = new ArrayList<>();
-        List<String> strainNames = new ArrayList<>();
-        String strStrainIds = "";
-        for (int i = 0; i < strains.size(); i++) {
-            try {
-                strainIdStmt = connection.prepareStatement(SELECT_STRAIN_IDS);
-                strainIdStmt.setString(1, strains.get(i) + "%");
-                resultStrainIds = strainIdStmt.executeQuery();
-                if (resultStrainIds.next()) {
-                    int id = resultStrainIds.getInt("id");
-                    String name = resultStrainIds.getString("name");
-                    strainIds.add(id);
-                    strainNames.add(name);
-                    strStrainIds = strStrainIds + ":" + id;
-                }
-            }  catch (SQLException exc) {
-                throw exc;
-            } finally {
-                if (resultStrainIds != null)
-                    resultStrainIds.close();
-                if (strainIdStmt != null)
-                    strainIdStmt.close();
-            }
-        }
-        // insert new strains
-        insertStrainsStmt = connection.prepareStatement(INSERT_MVAR_STRAINS);
-        try {
-            for (int i = 0; i < strainIds.size(); i++) {
-                // insert id into strain table (MVAR strains)
-                insertStrainsStmt.setString(1, strainNames.get(i));
-                insertStrainsStmt.setInt(2, strainIds.get(i));
-                insertStrainsStmt.addBatch();
-            }
-            insertStrainsStmt.executeBatch();
-//            connection.commit();
-        } catch (SQLException exc) {
-            throw exc;
-        } finally {
-            if (insertStrainsStmt != null)
-                insertStrainsStmt.close();
-        }
-
-        System.out.println("The list of strain Ids is the following : " + strStrainIds);
-        return strainIds;
     }
 
     private static Map<Integer, String[]> selectGenotypeFromTemp(Connection connection, int start, int stop) throws SQLException {
@@ -160,13 +90,13 @@ public class VariantStrainInsertion {
         Map<Integer, String[]> variantIdGenotypeMap = new HashMap();
 
         try {
-            selectStmt = connection.prepareStatement(SELECT_GENOTYPE_TEMP);
+            selectStmt = connection.prepareStatement("SELECT id, variant_id, format, genotype_data FROM genotype_temp WHERE id BETWEEN ? AND ?");
             selectStmt.setInt(1, start);
             selectStmt.setInt(2, stop);
             result = selectStmt.executeQuery();
             while (result.next()) {
                 // ... get column values from this record
-                int variantId = result.getInt("id");
+                int variantId = result.getInt("variant_id");
 //                String format = result.getString("format");
                 String[] genotypes = result.getString("genotype_data").split("\t");
 //                variantIdGenotypeMap.put(variantId, new Genotype(format, genotypes));
@@ -188,7 +118,7 @@ public class VariantStrainInsertion {
         PreparedStatement insertVariantStrain = null;
 
         try {
-            insertVariantStrain = connection.prepareStatement(INSERT_VARIANT_STRAIN);
+            insertVariantStrain = connection.prepareStatement("INSERT INTO variant_strain (variant_id, strain_id, genotype, imputed) VALUES (?, ?, ?, ?)");
             VariantInsertion.innoDBSetOptions(connection, false);
             connection.setAutoCommit(false);
             for (Map.Entry<Integer, String[]> entry : variantIdGenotypeMap.entrySet()) {
@@ -204,6 +134,7 @@ public class VariantStrainInsertion {
                         int idx = geno[i].indexOf(':');
                         String gtValue = geno[i].substring(0, idx);
                         insertVariantStrain.setString(3, gtValue);
+                        insertVariantStrain.setByte(4, (byte)0); // default non imputed is 0
                         insertVariantStrain.addBatch();
                     }
                 }
