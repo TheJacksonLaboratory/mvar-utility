@@ -2,13 +2,12 @@ package org.jax.mvar.utility.insert;
 
 import org.apache.commons.lang3.time.StopWatch;
 
-import org.eclipse.collections.api.map.primitive.MutableObjectLongMap;
+import org.eclipse.collections.api.map.primitive.MutableObjectIntMap;
 import org.eclipse.collections.impl.list.mutable.FastList;
-import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
+import org.eclipse.collections.impl.map.mutable.primitive.ObjectIntHashMap;
 import org.jax.mvar.utility.Config;
 import org.jax.mvar.utility.model.Variant;
 import org.jax.mvar.utility.parser.AnnotationParser;
-import org.jax.mvar.utility.parser.ConsequenceParser;
 import org.jax.mvar.utility.parser.InfoParser;
 import org.jax.mvar.utility.parser.VcfParser;
 
@@ -23,27 +22,22 @@ public class VariantInsertion {
 
     private final static List<String> VARIANT_TYPES = Arrays.asList("SNP", "DEL", "INS");
 
-    private static final String VARIANT_CANON_INSERT = "insert into variant_canon_identifier (variant_ref_txt) VALUES (?)";
-    private static final String VARIANT_INSERT = "insert into variant (accession, chr, position, alt, ref, type, functional_class_code, assembly, parent_ref_ind, variant_ref_txt, variant_hgvs_notation, dna_hgvs_notation, protein_hgvs_notation, impact, canon_var_identifier_id, gene_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-    private static final String VARIANT_TRANSCRIPT_TEMP = "insert into variant_transcript_temp (variant_ref_txt, transcript_ids, transcript_feature_ids) VALUES (?,?,?)";
-    private static final String GENOTYPE_TEMP = "insert into genotype_temp (format, genotype_data) VALUES (?,?)";
-
     private static int batchSize = 1000;
     private static final String ASSEMBLY = "grcm38";
-    private InfoParser infoParser = new AnnotationParser();
+    private InfoParser infoParser;
 
     /**
      * Loads a VCF file in the database
      *
-     * @param vcfFile     VCF file, can be gzipped or vcf format
-     * @param batchNumber a batch number of 1000 is advised if enough memory (7G) is allocated to the JVM
-     *                    Ultimately, the batch number depends on the File size and the JVM max and min memory
+     * @param vcfFile       VCF file, can be gzipped or vcf format
+     * @param batchNumber   a batch number of 1000 is advised if enough memory (7G) is allocated to the JVM
+     *                      Ultimately, the batch number depends on the File size and the JVM max and min memory
      * @param checkForCanon
      */
     public void loadVCF(File vcfFile, int batchNumber, boolean checkForCanon) {
         batchSize = batchNumber;
-        System.out.println("Batch size = " + batchSize );
-
+        System.out.println("Batch size = " + batchSize);
+        infoParser = new AnnotationParser(vcfFile);
         try {
             // parse variants into a Map
             LinkedHashMap<String, Variant> variations = VcfParser.parseVcf(vcfFile, checkForCanon);
@@ -110,20 +104,20 @@ public class VariantInsertion {
         }
     }
 
-    private MutableObjectLongMap selectAllFromColumnInList(Connection connection, String tableName, String columnName, List<String> listOfValues) throws SQLException {
+    private MutableObjectIntMap<?> selectAllFromColumnInList(Connection connection, String tableName, String columnName, Set<String> valueSet) throws SQLException {
         String listOfValueAsStr = "";
-        for (String value : listOfValues) {
+        for (String value : valueSet) {
             listOfValueAsStr = listOfValueAsStr.equals("") ? "'" + value + "'" : listOfValueAsStr.concat(",'").concat(value).concat("'");
         }
         String SELECT_ALL_FROM_TABLE_IN_LIST = "SELECT ID, " + columnName + " FROM " + tableName + " WHERE " + columnName + " IN (" + listOfValueAsStr + ");";
         Statement selectAllStmt = null;
         ResultSet result = null;
-        MutableObjectLongMap resultMap = new ObjectLongHashMap();
+        MutableObjectIntMap resultMap = new ObjectIntHashMap<>();
         try {
             selectAllStmt = connection.createStatement();
             result = selectAllStmt.executeQuery(SELECT_ALL_FROM_TABLE_IN_LIST);
             while (result.next()) {
-                resultMap.put(result.getString(columnName), result.getLong("ID"));
+                resultMap.put(result.getString(columnName), result.getInt("ID"));
             }
         } catch (SQLException exc) {
             throw exc;
@@ -144,11 +138,11 @@ public class VariantInsertion {
      */
     private void insertVariantsBatch(Connection connection, LinkedHashMap<String, Variant> variations) throws Exception {
         List<Variant> batchOfVars = new FastList<>();
-        List<String> batchOfGenes = new FastList<>();
-        List<String> batchOfTranscripts = new FastList<>();
+        Set<String> geneSet = new HashSet<>();
+        Set<String> transcriptSet = new HashSet<>();
 
         List<Map<String, String>> annotationParsed;
-        InfoParser infoParser = new AnnotationParser();
+//        InfoParser infoParser = new AnnotationParser();
         // Retrieve the last id of canons
         int canonIdx;
         String selectLastIdCanonical = "select id from variant_canon_identifier order by id desc limit 1 offset 0;";
@@ -171,26 +165,28 @@ public class VariantInsertion {
             batchOfVars.add(var);
 
             // get jannovar info
-            annotationParsed = infoParser.parse(var.getAnnotation());
-            batchOfGenes.add(annotationParsed.get(0).get("Gene_Name"));
-            batchOfTranscripts.add(annotationParsed.get(0).get("Feature_ID").split("\\.")[0]);
+            annotationParsed = infoParser.parse(var.getJannovarAnnotation());
+            for(Map<String, String> annotation : annotationParsed) {
+                geneSet.add(annotation.get("Gene_Name"));
+                transcriptSet.add(annotation.get("Feature_ID").split("\\.")[0]);
+            }
 
             if (idx > 1 && idx % batchSize == 0) {
-                canonIdx = batchInsertVariantsJDBC2(connection, batchOfVars, batchOfGenes, batchOfTranscripts, canonIdx);
+                canonIdx = batchInsertVariantsJDBC2(connection, batchOfVars, geneSet, transcriptSet, canonIdx);
                 //clear batch lists
                 batchOfVars.clear();
-                batchOfGenes.clear();
-                batchOfTranscripts.clear();
+                geneSet.clear();
+                transcriptSet.clear();
             }
             idx++;
         }
 
         //last batch
         if (batchOfVars.size() > 0) {
-            batchInsertVariantsJDBC2(connection, batchOfVars, batchOfGenes, batchOfTranscripts, canonIdx);
+            batchInsertVariantsJDBC2(connection, batchOfVars, geneSet, transcriptSet, canonIdx);
             batchOfVars.clear();
-            batchOfGenes.clear();
-            batchOfTranscripts.clear();
+            geneSet.clear();
+            transcriptSet.clear();
         }
 
         // update canonical id
@@ -206,21 +202,21 @@ public class VariantInsertion {
     /**
      * Insert variants, and relationships using JDBC
      *
-     * @param connection           jdbc connection
+     * @param connection         jdbc connection
      * @param batchOfVars
-     * @param batchOfGenes
-     * @param batchOfTranscripts
+     * @param geneSet
+     * @param transcriptSet
      */
-    private int batchInsertVariantsJDBC2(Connection connection, List<Variant> batchOfVars, List<String> batchOfGenes, List<String> batchOfTranscripts, int canonIdx) throws Exception {
+    private int batchInsertVariantsJDBC2(Connection connection, List<Variant> batchOfVars, Set<String> geneSet, Set<String> transcriptSet, int canonIdx) throws Exception {
         // set autocommit on for the selects stmt
         connection.setAutoCommit(true);
 
         // records of all unique gene symbols
-        MutableObjectLongMap geneSymbolRecs = selectAllFromColumnInList(connection, "gene", "symbol", batchOfGenes);
+        MutableObjectIntMap geneSymbolRecs = selectAllFromColumnInList(connection, "gene", "symbol", geneSet);
 
-        MutableObjectLongMap geneSynonymRecs = selectAllFromColumnInList(connection, "synonym", "name", batchOfGenes);
+        MutableObjectIntMap geneSynonymRecs = selectAllFromColumnInList(connection, "synonym", "name", geneSet);
 
-        MutableObjectLongMap transcriptRecs = selectAllFromColumnInList(connection, "transcript", "primary_identifier", batchOfTranscripts);
+        MutableObjectIntMap transcriptRecs = selectAllFromColumnInList(connection, "transcript", "primary_identifier", transcriptSet);
 
         // set autocommit off again
         connection.setAutoCommit(false);
@@ -230,87 +226,97 @@ public class VariantInsertion {
 
         try {
             // directly use java PreparedStatement to get ResultSet with keys
-            insertCanonVariants = connection.prepareStatement(VARIANT_CANON_INSERT, Statement.RETURN_GENERATED_KEYS);
-            insertVariants = connection.prepareStatement(VARIANT_INSERT);
-            insertVariantTranscriptsTemp = connection.prepareStatement(VARIANT_TRANSCRIPT_TEMP);
-            insertGenotypeTemp = connection.prepareStatement(GENOTYPE_TEMP);
+            insertCanonVariants = connection.prepareStatement("insert into variant_canon_identifier (variant_ref_txt) VALUES (?)", Statement.RETURN_GENERATED_KEYS);
+            insertVariants = connection.prepareStatement("insert into variant (accession, chr, position, alt, ref, type, functional_class_code, assembly, parent_ref_ind, variant_ref_txt, variant_hgvs_notation, dna_hgvs_notation, protein_hgvs_notation, impact, canon_var_identifier_id, gene_id, protein_position, amino_acid_change) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            insertVariantTranscriptsTemp = connection.prepareStatement("insert into variant_transcript_temp (variant_ref_txt, transcript_ids, transcript_feature_ids) VALUES (?,?,?)");
+            insertGenotypeTemp = connection.prepareStatement("insert into genotype_temp (variant_id, format, genotype_data) VALUES (?,?,?)");
 
             for (Variant variant : batchOfVars) {
-                // insert into canonical table
-                insertCanonVariants.setString(1, variant.getVariantRefTxt());
-                insertCanonVariants.addBatch();
+                // check if the variant exists
+                if (!variant.getExists()) {
 
-                // get jannovar info
-                annotationParsed = infoParser.parse(variant.getAnnotation());
-                String transcriptExistingConcatIds = "", transcriptFeatureConcatIds = "";
-                for (Map<String, String> annotation : annotationParsed) {
-                    int idx = annotation.get("Feature_ID").indexOf('.');
-                    String transcriptId;
-                    if (idx != -1)
-                        transcriptId = annotation.get("Feature_ID").substring(0, idx);
+                    // insert into canonical table
+                    insertCanonVariants.setString(1, variant.getVariantRefTxt());
+                    insertCanonVariants.addBatch();
+
+                    // get jannovar info
+                    annotationParsed = infoParser.parse(variant.getJannovarAnnotation());
+                    String transcriptExistingConcatIds = "", transcriptFeatureConcatIds = "";
+                    for (Map<String, String> annotation : annotationParsed) {
+                        int idx = annotation.get("Feature_ID").indexOf('.');
+                        String transcriptId;
+                        if (idx != -1)
+                            transcriptId = annotation.get("Feature_ID").substring(0, idx);
+                        else
+                            transcriptId = annotation.get("Feature_ID");
+                        transcriptExistingConcatIds = transcriptExistingConcatIds.equals("") ? String.valueOf(transcriptRecs.get(transcriptId)) : transcriptExistingConcatIds.concat(",").concat(String.valueOf(transcriptRecs.get(transcriptId)));
+                        transcriptFeatureConcatIds = transcriptFeatureConcatIds.equals("") ? transcriptId : transcriptFeatureConcatIds.concat(",").concat(transcriptId);
+                    }
+                    // insert into temp table transcript variants
+                    insertVariantTranscriptsTemp.setString(1, variant.getVariantRefTxt());
+                    insertVariantTranscriptsTemp.setString(2, transcriptExistingConcatIds);
+                    insertVariantTranscriptsTemp.setString(3, transcriptFeatureConcatIds);
+                    insertVariantTranscriptsTemp.addBatch();
+
+                    // Do we want that? to link only the most pathogenic gene info to this variant? or do we have a one to many relationship?
+                    String geneName = annotationParsed.get(0).get("Gene_Name");
+                    long geneId = geneSymbolRecs.get(geneName);
+
+                    // we get the first gene info in the jannovar info string
+                    if (geneId == -1) {
+                        // We check in the list of synonyms to get the corresponding gene
+                        geneId = getGeneBySynonyms(connection, geneSynonymRecs, geneName);
+                    }
+
+                    insertVariants.setString(1, variant.getId());
+                    insertVariants.setString(2, variant.getChr());
+                    insertVariants.setInt(3, Integer.parseInt(variant.getPos()));
+                    insertVariants.setString(4, variant.getAlt());
+                    insertVariants.setString(5, variant.getRef());
+                    insertVariants.setString(6, variant.getType());
+                    String concatenations = concatenate(annotationParsed, "Annotation");
+                    if (concatenations == null)
+                        insertVariants.setNull(7, Types.VARCHAR);
                     else
-                        transcriptId = annotation.get("Feature_ID");
-                    transcriptExistingConcatIds = transcriptExistingConcatIds.equals("") ? String.valueOf(transcriptRecs.get(transcriptId)) : transcriptExistingConcatIds.concat(",").concat(String.valueOf(transcriptRecs.get(transcriptId)));
-                    transcriptFeatureConcatIds = transcriptFeatureConcatIds.equals("") ? transcriptId : transcriptFeatureConcatIds.concat(",").concat(transcriptId);
+                        insertVariants.setString(7, concatenations);
+                    insertVariants.setString(8, ASSEMBLY);
+                    insertVariants.setBoolean(9, true);
+                    // for now we put the variantRefTxt in ParentVarRef too as we are inserting variants with assembly 38 already (no liftover)
+                    insertVariants.setString(10, variant.getVariantRefTxt());
+                    insertVariants.setString(11, variant.getHgvsg());
+                    concatenations = concatenate(annotationParsed, "HGVS.c");
+                    if (concatenations == null)
+                        insertVariants.setNull(12, Types.VARCHAR);
+                    else
+                        insertVariants.setString(12, concatenations);
+                    concatenations = concatenate(annotationParsed, "HGVS.p");
+                    if (concatenations == null)
+                        insertVariants.setNull(13, Types.VARCHAR);
+                    else
+                        insertVariants.setString(13, concatenations);
+                    concatenations = concatenate(annotationParsed, "Annotation_Impact");
+                    if (concatenations == null)
+                        insertVariants.setNull(14, Types.VARCHAR);
+                    else
+                        insertVariants.setString(14, concatenations);
+                    insertVariants.setLong(15, canonIdx);
+                    if (geneId == -1)
+                        insertVariants.setNull(16, Types.BIGINT);
+                    else
+                        insertVariants.setLong(16, geneId);
+                    insertVariants.setString(17, variant.getProteinPosition());
+                    insertVariants.setString(18, variant.getAminoAcidChange());
+                    insertVariants.addBatch();
+                    // insert variant id to genotype temp with the current idx
+                    insertGenotypeTemp.setInt(1, canonIdx);
+                } else {
+                    // insert existing variant id
+                    insertGenotypeTemp.setInt(1, variant.getExistingId());
                 }
-                // insert into temp table transcript variants
-                insertVariantTranscriptsTemp.setString(1, variant.getVariantRefTxt());
-                insertVariantTranscriptsTemp.setString(2, transcriptExistingConcatIds);
-                insertVariantTranscriptsTemp.setString(3, transcriptFeatureConcatIds);
-                insertVariantTranscriptsTemp.addBatch();
-
                 // insert into temp genotype table
-                insertGenotypeTemp.setString(1, variant.getFormat());
-                insertGenotypeTemp.setString(2, variant.getGenotypeData());
+                insertGenotypeTemp.setString(2, variant.getFormat());
+                insertGenotypeTemp.setString(3, variant.getGenotypeData());
                 insertGenotypeTemp.addBatch();
-
-                // Do we want that? to link only the most pathogenic gene info to this variant? or do we have a one to many relationship?
-                String geneName = annotationParsed.get(0).get("Gene_Name");
-                long geneId = geneSymbolRecs.get(geneName);
-
-                // we get the first gene info in the jannovar info string
-                if (geneId == -1) {
-                    // We check in the list of synonyms to get the corresponding gene
-                    geneId = getGeneBySynonyms(connection, geneSynonymRecs, geneName);
-                }
-
-                insertVariants.setString(1, variant.getId());
-                insertVariants.setString(2, variant.getChr());
-                insertVariants.setInt(3, Integer.parseInt(variant.getPos()));
-                insertVariants.setString(4, variant.getAlt());
-                insertVariants.setString(5, variant.getRef());
-                insertVariants.setString(6, variant.getType());
-                String concatenations = concatenate(annotationParsed, "Annotation");
-                if (concatenations == null)
-                    insertVariants.setNull(7, Types.VARCHAR);
-                else
-                    insertVariants.setString(7, concatenations);
-                insertVariants.setString(8, ASSEMBLY);
-                insertVariants.setBoolean(9, true);
-                // for now we put the variantRefTxt in ParentVarRef too as we are inserting variants with assembly 38 already (no liftover)
-                insertVariants.setString(10, variant.getVariantRefTxt());
-                insertVariants.setString(11, variant.getHgvsg());
-                concatenations = concatenate(annotationParsed, "HGVS.c");
-                if (concatenations == null)
-                    insertVariants.setNull(12, Types.VARCHAR);
-                else
-                    insertVariants.setString(12, concatenations);
-                concatenations = concatenate(annotationParsed, "HGVS.p");
-                if (concatenations == null)
-                    insertVariants.setNull(13, Types.VARCHAR);
-                else
-                    insertVariants.setString(13, concatenations);
-                concatenations = concatenate(annotationParsed, "Annotation_Impact");
-                if (concatenations == null)
-                    insertVariants.setNull(14, Types.VARCHAR);
-                else
-                    insertVariants.setString(14, concatenations);
-                insertVariants.setLong(15, canonIdx);
-                if (geneId == -1)
-                    insertVariants.setNull(16, Types.BIGINT);
-                else
-                    insertVariants.setLong(16, geneId);
-                insertVariants.addBatch();
 
                 canonIdx++;
 
@@ -352,9 +358,9 @@ public class VariantInsertion {
      * @return Returns -1 if no result was found
      * @throws SQLException
      */
-    private long getGeneBySynonyms(Connection connection, MutableObjectLongMap geneSynonymRecs, final String geneName) throws SQLException {
+    private int getGeneBySynonyms(Connection connection, MutableObjectIntMap geneSynonymRecs, final String geneName) throws SQLException {
         connection.setAutoCommit(true);
-        long synId = geneSynonymRecs.get(geneName);
+        int synId = geneSynonymRecs.get(geneName);
         String selectGeneBySynId = "SELECT * FROM gene_synonym WHERE synonym_id=" + synId;
         Statement selectStmt = null;
         ResultSet result = null;
@@ -362,7 +368,7 @@ public class VariantInsertion {
             selectStmt = connection.createStatement();
             result = selectStmt.executeQuery(selectGeneBySynId);
             connection.setAutoCommit(false);
-            while (result.next()) return result.getLong("gene_synonyms_id");
+            while (result.next()) return result.getInt("gene_synonyms_id");
         } catch (SQLException exc) {
             throw exc;
         } finally {

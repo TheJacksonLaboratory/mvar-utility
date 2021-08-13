@@ -19,11 +19,16 @@ public class Variant {
     String vepConsequence;
     String type;
     String variantRefTxt;
+    String proteinPosition;
+    String aminoAcidChange;
     Map strains;
     String[] strainList;
+    boolean exists;
+    int existingId;
 
     public Variant(String chr, String pos, String id, String ref, String alt, String qual, String filter,
-                   String format, String hgvsg, String jannovarAnnotation, String genotypeData) {
+                   String format, String hgvsg, String proteinPosition, String aminoAcidChange,
+                   String jannovarAnnotation, String genotypeData) {
         this.chr = chr.replace("ch", "").replace("r", "");
         this.pos = pos;
         this.id = id;
@@ -33,8 +38,12 @@ public class Variant {
         this.filter = filter;
         this.format = format;
         this.hgvsg = hgvsg;
+        this.proteinPosition = proteinPosition;
+        this.aminoAcidChange = aminoAcidChange;
         this.jannovarAnnotation = jannovarAnnotation;
         this.genotypeData = genotypeData;
+        // default value set to false
+        this.exists = false;
         this.variantRefTxt = chr.concat("_").concat(pos).concat("_").concat(ref).concat("_").concat(alt);
         setType(this.ref, this.alt);
     }
@@ -92,7 +101,7 @@ public class Variant {
 
     public String getGenotypeData() { return genotypeData; }
 
-    public String getAnnotation() {
+    public String getJannovarAnnotation() {
         return jannovarAnnotation;
     }
 
@@ -116,6 +125,22 @@ public class Variant {
         }
     }
 
+    public void setExists(boolean exists) {
+        this.exists = exists;
+    }
+
+    public boolean getExists() {
+        return this.exists;
+    }
+
+    public void setExistingId(int id) {
+        this.existingId = id;
+    }
+
+    public int getExistingId() {
+        return this.existingId;
+    }
+
     /**
      *
      * @return a Map of genotype data (value) for strains (key)
@@ -127,4 +152,8 @@ public class Variant {
     public String[] getStrainList() {
         return this.strainList;
     }
+
+    public String getProteinPosition() { return this.proteinPosition; }
+
+    public String getAminoAcidChange() { return this.aminoAcidChange; }
 }
