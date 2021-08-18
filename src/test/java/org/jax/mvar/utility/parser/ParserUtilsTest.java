@@ -1,9 +1,12 @@
 package org.jax.mvar.utility.parser;
 
+import org.jax.mvar.utility.Config;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.File;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.Arrays;
 import java.util.List;
 
@@ -30,7 +33,13 @@ public class ParserUtilsTest {
      */
     @Test
     public void testGetStrainIds() {
-
+        Config config = new Config();
+        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
+            List<Integer> strainIds = ParserUtils.getStrainIds(connection, new File("src/test/resources/snpgrid_samples.txt"), false);
+            Assert.assertEquals(strainIds.size(), 580);
+        } catch (Exception exc) {
+            exc.printStackTrace();
+        }
     }
 
     /**

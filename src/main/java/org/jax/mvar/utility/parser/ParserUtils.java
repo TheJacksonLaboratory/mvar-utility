@@ -18,10 +18,11 @@ public class ParserUtils {
      *
      * @param connection sql connection
      * @param strainFile sample file
+     * @param insertNewStrains if true we insert the new, unfound strains into the mvar_strain table
      * @return List of all strain ids
      * @throws Exception
      */
-    public static List<Integer> getStrainIds(Connection connection, File strainFile) throws Exception {
+    public static List<Integer> getStrainIds(Connection connection, File strainFile, boolean insertNewStrains) throws Exception {
         // Collect list of strains from strainFile
         // get the file names from a list a the chromosome file names is not in the wanted order
         final List<String> strains = new ArrayList<>();
@@ -72,19 +73,61 @@ public class ParserUtils {
         if (unfound.size() == 0) {
             System.out.println("All samples were found in the DB.");
         } else {
-            System.out.println("The following samples were not found in the DB:");
-            for (String strain : unfound) {
-                System.out.println(strain);
+            // search in synonyms
+            List<String> unfound2 = (List<String>) copyList(unfound);
+            for (String strain : unfound2) {
+                try {
+                    strainIdStmt = connection.prepareStatement("SELECT id, name, synonyms from strain where synonyms like ?");
+                    strainIdStmt.setString(1, "%" + strain + "%");
+                    resultStrainIds = strainIdStmt.executeQuery();
+                    while (resultStrainIds.next()) {
+                        int id = resultStrainIds.getInt("id");
+                        String name = resultStrainIds.getString("name");
+                        String synonyms = resultStrainIds.getString("synonyms");
+                        String[] synonymsArray = synonyms.split("\\|");
+                        for (String synonym : synonymsArray) {
+                            if (synonym.equals(strain)) {
+                                strainIds.add(id);
+                                strainNames.add(name);
+                                strStrainIds = strStrainIds + ":" + id;
+                                unfound.remove(strain);
+                            }
+                        }
+                    }
+                } catch (SQLException exc) {
+                    throw exc;
+                } finally {
+                    if (resultStrainIds != null)
+                        resultStrainIds.close();
+                    if (strainIdStmt != null)
+                        strainIdStmt.close();
+                }
             }
-            // We stop the insertion as if there is a missing strain, the relationship insertion will fail.
-            throw new IllegalStateException("Error finding the above strains. Make sure that all the strains in the strain file " +
-                    "provided are present in the strain table.");
+            if (unfound.size() > 0) {
+                System.out.println("The following samples were not found in the DB:");
+                for (String strain : unfound) {
+                    System.out.println(strain);
+                }
+                // We stop the insertion as if there is a missing strain, the relationship insertion will fail.
+                throw new IllegalStateException("Error finding the above strains. Make sure that all the strains in the strain file " +
+                        "provided are present in the strain table.");
+            }
         }
         // INSERT in MVAR Strain table
-        insertIntoMvarStrain(connection, strainNames);
+        if (insertNewStrains) {
+            insertIntoMvarStrain(connection, strainNames);
+        }
 
         System.out.println("The list of strain Ids is the following : " + strStrainIds);
         return strainIds;
+    }
+
+    public static <T> List<?> copyList(List<T> list) {
+        List<T> copiedList = new ArrayList<>();
+        for (T item : list) {
+            copiedList.add(item);
+        }
+        return copiedList;
     }
 
     private static void insertIntoMvarStrain(Connection connection, List<String> strainNames) throws SQLException {
