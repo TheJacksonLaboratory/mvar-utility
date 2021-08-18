@@ -17,8 +17,9 @@ public class VariantStrainInsertion {
      * @param batchSize
      * @param startId in case a process needs to be re-run from a certain variant_id (instead of starting from the beginning all over again
      * @param strainFilePath full path of strain file
+     * @param imputed byte value where 0 = non-imputed, 1=
      */
-    public static void insertVariantStrainRelationships(int batchSize, int startId, String strainFilePath) {
+    public static void insertVariantStrainRelationships(int batchSize, int startId, String strainFilePath, byte imputed) {
         System.out.println("Inserting Variant Strain relationships...");
         final StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -27,7 +28,7 @@ public class VariantStrainInsertion {
 
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
 
-            List<Integer> strainIds = ParserUtils.getStrainIds(connection, new File(strainFilePath));
+            List<Integer> strainIds = ParserUtils.getStrainIds(connection, new File(strainFilePath), true);
 
             if (numberOfRecords == 0) {
                 // count all genotypes data saved
@@ -61,7 +62,7 @@ public class VariantStrainInsertion {
                     start = System.currentTimeMillis();
                     variantIdGenotypeMap = selectGenotypeFromTemp(connection, selectIdx, selectIdx + batchSize - 1);
 
-                    insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainIds);
+                    insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainIds, imputed);
                     variantIdGenotypeMap.clear();
                     elapsedTimeMillis = System.currentTimeMillis() - start;
                     System.out.println("Progress: " + i + " of " + numberOfRecords + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1));
@@ -72,7 +73,7 @@ public class VariantStrainInsertion {
             start = System.currentTimeMillis();
             variantIdGenotypeMap = selectGenotypeFromTemp(connection, selectIdx, numberOfRecords);
             if (variantIdGenotypeMap.size() > 0) {
-                insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainIds);
+                insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainIds, imputed);
                 variantIdGenotypeMap.clear();
                 elapsedTimeMillis = System.currentTimeMillis() - start;
                 System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords);
@@ -113,7 +114,7 @@ public class VariantStrainInsertion {
         return variantIdGenotypeMap;
     }
 
-    private static void insertVariantStrainInBatch(Connection connection, Map<Integer, String[]> variantIdGenotypeMap, List<Integer> strainIds) throws SQLException {
+    private static void insertVariantStrainInBatch(Connection connection, Map<Integer, String[]> variantIdGenotypeMap, List<Integer> strainIds, byte imputed) throws SQLException {
         // insert in variant transcript relationship
         PreparedStatement insertVariantStrain = null;
 
@@ -134,7 +135,7 @@ public class VariantStrainInsertion {
                         int idx = geno[i].indexOf(':');
                         String gtValue = geno[i].substring(0, idx);
                         insertVariantStrain.setString(3, gtValue);
-                        insertVariantStrain.setByte(4, (byte)0); // default non imputed is 0
+                        insertVariantStrain.setByte(4, imputed); // default non imputed is 0
                         insertVariantStrain.addBatch();
                     }
                 }

@@ -21,6 +21,7 @@ public class App {
         arguments.put("source_name", "Sanger V7");
         arguments.put("check_canon", false);
         arguments.put("data_path", "");
+        arguments.put("imputed", (byte)0);
 
         for (int i=0; i < args.length; i++) {
             if (args[i].startsWith("-")) {
@@ -43,6 +44,8 @@ public class App {
                     case "-check_canon":
                         arguments.put("check_canon", true);
                         break;
+                    case "-imputed":
+                        arguments.put("imputed", Byte.valueOf(args[i+1]));
                     default:
                         throw new IllegalStateException("Unexpected parameter: " + args[0]);
                 }
@@ -61,9 +64,6 @@ public class App {
                     break;
                 case "REL":
                     arguments.put("type", "REL");
-                    break;
-                case "SNPGRID":
-                    arguments.put("type", "SNPGRID");
                     break;
                 case "INSERT":
                     arguments.put("type", "INSERT");
@@ -122,7 +122,8 @@ public class App {
                 VariantTranscriptInsertion.insertVariantTranscriptSourceRel(batchSize, startId, sourceName);
             } else if (type.equals("GENO")){
                 String strainFilePath = (String) arguments.get("strain_path");
-                VariantStrainInsertion.insertVariantStrainRelationships(batchSize, startId, strainFilePath);
+                byte imputed = (byte) arguments.get("imputed");
+                VariantStrainInsertion.insertVariantStrainRelationships(batchSize, startId, strainFilePath, imputed);
             }
         } catch (Exception exc) {
             System.out.println(exc.getMessage());
