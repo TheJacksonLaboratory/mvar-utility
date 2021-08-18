@@ -21,14 +21,14 @@ This application is used to :
     
     To insert one file (vcf or vcf compressed (gz):
     <code>
-        java -jar mvar-utility-all.jar -data_path /path/to/data_file.vcf -batch_size integer
+        java -jar mvar-utility-all.jar INSERT -data_path /path/to/data_file.vcf -batch_size 5000 -check_canon
     </code>
     
-    The "-batch_size" is optional and the default value is 1000.
+    The "-batch_size" is optional; the default value is 1000. "-check_canon" is also optional and if present as a parameter, then the insertion will include a canonical variant check for uniqueness, so that no duplicates are added to the DB.
 
     To insert multiple files, a folder where the files are located can be passed as a parameter:
     <code>
-        java -jar mvar-utility-all.jar -data_path /path/to/data_folder -batch_size integer
+        java -jar mvar-utility-all.jar INSERT -data_path /path/to/data_folder -batch_size 5000 -check_canon
     </code>
    
     The command above requires Java 8 to be installed and possible the following JVM parameters to be set up depending on the size of the data to insert into the database.
@@ -65,10 +65,10 @@ This application is used to :
     Before inserting the strain/variant relationship, make sure that the list of strain names in the strain file that you have 
    (list of strains/individuals pulled from dataset) does exist in the Strain table. For example, the following strains QSi3, Qsi5 and B10.RIII are not in the strain list pulled from Mousemine and have to be added manually. The variant/strain relationships are added with the "GENO" parameter (we know whether there is a variant for a certain strain by parsing the genotype information in the VCF data). A required parameter is "strain_path" which points to a text file with the list of strains in the DB (separated by carriage returns):
     <code>
-       java -jar mvar-utility-all.jar GENO -strain_path /path/to/strain_file.txt -batch_size 1000 -start_id 1
+       java -jar mvar-utility-all.jar GENO -strain_path /path/to/strain_file.txt -batch_size 1000 -start_id 1 -imputed 1
     </code>
 
-    where -batch_size is optional (1000000 by default) and -start_id is optional (1 by default).
+    where -batch_size is optional (1000000 by default), -start_id is optional (1 by default) and -imputed is optional (0 by default, where 0=not imputed, 1=snpgrid imputed, 2=mgi imputed).
      
 3. Run MGI comparison
 
