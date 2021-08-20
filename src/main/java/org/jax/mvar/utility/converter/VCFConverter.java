@@ -17,8 +17,8 @@ public class VCFConverter {
      * @param separator separator used in file
      * @throws Exception
      */
-    public static LinkedHashMap<String, Variant> parseCSV(String csvFilePath, String separator) throws Exception {
-        LinkedHashMap<String, Variant> variations = new LinkedHashMap<>();
+    public static Map<String, Variant> parseCSV(String csvFilePath, String separator) throws Exception {
+        Map<String, Variant> variations = new LinkedHashMap<>();
 
         // read file line by line
         try(InputStream is = new FileInputStream(csvFilePath);
@@ -97,7 +97,7 @@ public class VCFConverter {
      * @param vcfFilePath
      * @throws Exception
      */
-    public static void writeVCF(LinkedHashMap<String, Variant> variants, String vcfFilePath) throws Exception {
+    public static void writeVCF(Map<String, Variant> variants, String vcfFilePath) throws Exception {
 
         if (!vcfFilePath.endsWith(".vcf"))
             throw new Exception("The file name should have the '.vcf' extension.");

@@ -111,7 +111,7 @@ public class VariantTranscriptInsertion {
     private static Map<Long, Set<Long>> selectVariantTranscriptsFromTemp(Connection connection, int start, int stop) throws SQLException {
         PreparedStatement selectStmt = null;
         ResultSet result = null;
-        Map<Long, Set<Long>> variantIdTranscriptIdsMap = new HashMap();
+        Map<Long, Set<Long>> variantIdTranscriptIdsMap = new LinkedHashMap<>();
 
         try {
             selectStmt = connection.prepareStatement("SELECT id, transcript_ids FROM variant_transcript_temp WHERE id BETWEEN ? AND ?");

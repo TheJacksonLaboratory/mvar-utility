@@ -9,28 +9,34 @@ import java.sql.*;
 import java.util.*;
 
 public class VariantStrainInsertion {
-    private static int numberOfRecords = 0;
 
     /**
      * Insert variant/transcripts relationships given the variant_transcript_temp table
      *
      * @param batchSize
-     * @param startId in case a process needs to be re-run from a certain variant_id (instead of starting from the beginning all over again
+     * @param startId genotype_temp id (variant id) at which to start the relationship insertion :
+     *                in case a process needs to be re-run from a certain variant_id (instead of starting from the beginning all over again.
+     *                By default 1.
+     * @param stopId genotype temp id (variant id) at which to stop the relationship insertion.
+     *               By default the id of the last row of the genotype_temp table (if default value is -1).
      * @param strainFilePath full path of strain file
-     * @param imputed byte value where 0 = non-imputed, 1=
+     * @param imputed byte value where 0 = non-imputed, 1=snpgrid imputed, 2=mgi imputed
      */
-    public static void insertVariantStrainRelationships(int batchSize, int startId, String strainFilePath, byte imputed) {
+    public static void insertVariantStrainRelationships(int batchSize, int startId, int stopId, String strainFilePath, byte imputed) {
         System.out.println("Inserting Variant Strain relationships...");
         final StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         // get Properties
         Config config = new Config();
+        int numberOfRecords = 0;
 
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
 
-            List<Integer> strainIds = ParserUtils.getStrainIds(connection, new File(strainFilePath), true);
+            Map<Integer, String> strainsMap = ParserUtils.getStrainsFromFile(connection, new File(strainFilePath));
+            // INSERT in MVAR Strain table
+            InsertUtils.insertIntoMvarStrain(connection, strainsMap);
 
-            if (numberOfRecords == 0) {
+            if (stopId == -1) {
                 // count all genotypes data saved
                 PreparedStatement countStmt = null;
                 ResultSet resultCount = null;
@@ -39,7 +45,6 @@ public class VariantStrainInsertion {
                     resultCount = countStmt.executeQuery();
                     if (resultCount.next()) {
                         numberOfRecords = resultCount.getInt(1);
-                        System.out.println("NumberOfRows = " + numberOfRecords);
                     } else {
                         System.out.println("error: could not get the record counts");
                     }
@@ -50,9 +55,9 @@ public class VariantStrainInsertion {
                         countStmt.close();
                 }
             } else {
-                System.out.println("NumberOfRows = " + numberOfRecords);
+                numberOfRecords = stopId;
             }
-
+            System.out.println("NumberOfRows = " + (numberOfRecords - startId) + " to be parsed.");
             System.out.println("Batch size is " + batchSize);
             int selectIdx = startId;
             long start, elapsedTimeMillis;
@@ -62,7 +67,7 @@ public class VariantStrainInsertion {
                     start = System.currentTimeMillis();
                     variantIdGenotypeMap = selectGenotypeFromTemp(connection, selectIdx, selectIdx + batchSize - 1);
 
-                    insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainIds, imputed);
+                    insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainsMap, imputed);
                     variantIdGenotypeMap.clear();
                     elapsedTimeMillis = System.currentTimeMillis() - start;
                     System.out.println("Progress: " + i + " of " + numberOfRecords + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1));
@@ -73,7 +78,7 @@ public class VariantStrainInsertion {
             start = System.currentTimeMillis();
             variantIdGenotypeMap = selectGenotypeFromTemp(connection, selectIdx, numberOfRecords);
             if (variantIdGenotypeMap.size() > 0) {
-                insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainIds, imputed);
+                insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainsMap, imputed);
                 variantIdGenotypeMap.clear();
                 elapsedTimeMillis = System.currentTimeMillis() - start;
                 System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords);
@@ -88,7 +93,7 @@ public class VariantStrainInsertion {
     private static Map<Integer, String[]> selectGenotypeFromTemp(Connection connection, int start, int stop) throws SQLException {
         PreparedStatement selectStmt = null;
         ResultSet result = null;
-        Map<Integer, String[]> variantIdGenotypeMap = new HashMap();
+        Map<Integer, String[]> variantIdGenotypeMap = new LinkedHashMap<>();
 
         try {
             selectStmt = connection.prepareStatement("SELECT id, variant_id, format, genotype_data FROM genotype_temp WHERE id BETWEEN ? AND ?");
@@ -114,7 +119,7 @@ public class VariantStrainInsertion {
         return variantIdGenotypeMap;
     }
 
-    private static void insertVariantStrainInBatch(Connection connection, Map<Integer, String[]> variantIdGenotypeMap, List<Integer> strainIds, byte imputed) throws SQLException {
+    private static void insertVariantStrainInBatch(Connection connection, Map<Integer, String[]> variantIdGenotypeMap, Map<Integer, String> strainMap, byte imputed) throws Exception {
         // insert in variant transcript relationship
         PreparedStatement insertVariantStrain = null;
 
@@ -122,6 +127,12 @@ public class VariantStrainInsertion {
             insertVariantStrain = connection.prepareStatement("INSERT INTO variant_strain (variant_id, strain_id, genotype, imputed) VALUES (?, ?, ?, ?)");
             VariantInsertion.innoDBSetOptions(connection, false);
             connection.setAutoCommit(false);
+
+            if (strainMap.size() != variantIdGenotypeMap.size())
+                throw new Exception("Error: the number of strains and the number columns in genotype temp table are different");
+            List<Integer> strainIds = new ArrayList<>();
+            strainIds.addAll(strainMap.keySet());
+
             for (Map.Entry<Integer, String[]> entry : variantIdGenotypeMap.entrySet()) {
                 int variantId = entry.getKey();
                 String[] geno = entry.getValue();

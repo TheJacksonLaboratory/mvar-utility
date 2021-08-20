@@ -23,8 +23,8 @@ public class VcfParser {
      * @param checkForCanon
      * @return
      */
-    public static LinkedHashMap<String, Variant> parseVcf(File vcfFile, boolean checkForCanon) throws Exception {
-        LinkedHashMap<String, Variant> variations;
+    public static Map<String, Variant> parseVcf(File vcfFile, boolean checkForCanon) throws Exception {
+        Map<String, Variant> variations;
 
         if (vcfFile.getName().endsWith(".vcf")) {
             // read file line by line of unzipped file
@@ -52,8 +52,8 @@ public class VcfParser {
         return variations;
     }
 
-    private static LinkedHashMap<String, Variant> parse(String filename, BufferedReader br, InfoParser infoParser, boolean checkForCanon) throws Exception {
-        LinkedHashMap<String, Variant> variations = new LinkedHashMap<>();
+    private static Map<String, Variant> parse(String filename, BufferedReader br, InfoParser infoParser, boolean checkForCanon) throws Exception {
+        Map<String, Variant> variations = new LinkedHashMap<>();
 
         String next, strLine = br.readLine();
         int idx = 0;

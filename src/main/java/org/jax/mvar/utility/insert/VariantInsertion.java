@@ -40,7 +40,7 @@ public class VariantInsertion {
         infoParser = new AnnotationParser(vcfFile);
         try {
             // parse variants into a Map
-            LinkedHashMap<String, Variant> variations = VcfParser.parseVcf(vcfFile, checkForCanon);
+            Map<String, Variant> variations = VcfParser.parseVcf(vcfFile, checkForCanon);
             // Persist data
             persistData(variations);
         } catch (Exception e) {
@@ -62,7 +62,7 @@ public class VariantInsertion {
      *
      * @param variations
      */
-    private void persistData(LinkedHashMap<String, Variant> variations) throws Exception {
+    private void persistData(Map<String, Variant> variations) throws Exception {
         // get Properties
         Config config = new Config();
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
@@ -136,7 +136,7 @@ public class VariantInsertion {
      * @param connection jdbc connection
      * @param variations LinkedHashMap of variations
      */
-    private void insertVariantsBatch(Connection connection, LinkedHashMap<String, Variant> variations) throws Exception {
+    private void insertVariantsBatch(Connection connection, Map<String, Variant> variations) throws Exception {
         List<Variant> batchOfVars = new FastList<>();
         Set<String> geneSet = new HashSet<>();
         Set<String> transcriptSet = new HashSet<>();

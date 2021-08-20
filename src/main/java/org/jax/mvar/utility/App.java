@@ -16,8 +16,31 @@ public class App {
     private static Map<String, Object> cmdArgsParser(String[] args) {
         Map<String, Object> arguments = new LinkedHashMap();
 
+        // check command type (1rst parameter)
+        switch (args[0]) {
+            case "MGI":
+                arguments.put("type", "MGI");
+                break;
+            case "CONVERT":
+                arguments.put("type", "CONVERT");
+                break;
+            case "GENO":
+                arguments.put("type", "GENO");
+                break;
+            case "REL":
+                arguments.put("type", "REL");
+                break;
+            case "INSERT":
+                arguments.put("type", "INSERT");
+                break;
+            default:
+                throw new IllegalStateException("Unexpected command type: " + args[0] + ". " +
+                        "Please use INSERT, REL, GENO, MGI or CONVERT as the first parameter.");
+        }
+        // check and load parameters for given command
         arguments.put("batch_size", 10000);
         arguments.put("start_id", 1);
+        arguments.put("stop_id", -1);
         arguments.put("source_name", "Sanger V7");
         arguments.put("check_canon", false);
         arguments.put("data_path", "");
@@ -41,6 +64,8 @@ public class App {
                     case "-start_id":
                         arguments.put("start_id", Integer.valueOf(args[i+1]));
                         break;
+                    case "-stop_id":
+                        arguments.put("stop_id", Integer.valueOf(args[i+1]));
                     case "-check_canon":
                         arguments.put("check_canon", true);
                         break;
@@ -49,28 +74,6 @@ public class App {
                     default:
                         throw new IllegalStateException("Unexpected parameter: " + args[0]);
                 }
-            }
-        }
-        if (args != null) {
-            switch (args[0]) {
-                case "MGI":
-                    arguments.put("type", "MGI");
-                    break;
-                case "CONVERT":
-                    arguments.put("type", "CONVERT");
-                    break;
-                case "GENO":
-                    arguments.put("type", "GENO");
-                    break;
-                case "REL":
-                    arguments.put("type", "REL");
-                    break;
-                case "INSERT":
-                    arguments.put("type", "INSERT");
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected command type: " + args[0] + ". " +
-                            "Please use INSERT, REL, GENO, MGI or CONVERT as the first parameter.");
             }
         }
         return arguments;
@@ -83,6 +86,7 @@ public class App {
             String type = (String) arguments.get("type");
             int batchSize = (int) arguments.get("batch_size");
             int startId = (int) arguments.get("start_id");
+            int stopId = (int) arguments.get("stop_id");
             String path = (String) arguments.get("data_path");
             Set<String> keys = arguments.keySet();
             if (type.equals("MGI")) {         // Check MGI vcf data against the MVAR database for duplicates
@@ -92,7 +96,7 @@ public class App {
             } else if (type.equals("CONVERT")) {   // Convert CSV to VCF format
                 try {
                     // Read variant csv file
-                    LinkedHashMap<String, Variant> variants = VCFConverter.parseCSV(path, ",");
+                    Map<String, Variant> variants = VCFConverter.parseCSV(path, ",");
 
                     //write loaded variants into vcf file
                     VCFConverter.writeVCF(variants, path + ".vcf");
@@ -123,7 +127,7 @@ public class App {
             } else if (type.equals("GENO")){
                 String strainFilePath = (String) arguments.get("strain_path");
                 byte imputed = (byte) arguments.get("imputed");
-                VariantStrainInsertion.insertVariantStrainRelationships(batchSize, startId, strainFilePath, imputed);
+                VariantStrainInsertion.insertVariantStrainRelationships(batchSize, startId, stopId, strainFilePath, imputed);
             }
         } catch (Exception exc) {
             System.out.println(exc.getMessage());

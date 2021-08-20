@@ -1,5 +1,7 @@
 package org.jax.mvar.utility.parser;
 
+import org.jax.mvar.utility.Utils;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -18,14 +20,15 @@ public class ParserUtils {
      *
      * @param connection sql connection
      * @param strainFile sample file
-     * @param insertNewStrains if true we insert the new, unfound strains into the mvar_strain table
-     * @return List of all strain ids
+     * @return Map of strains (where key/value is strain_id/name)
      * @throws Exception
      */
-    public static List<Integer> getStrainIds(Connection connection, File strainFile, boolean insertNewStrains) throws Exception {
+    public static Map<Integer, String> getStrainsFromFile(Connection connection, File strainFile) throws Exception {
         // Collect list of strains from strainFile
         // get the file names from a list a the chromosome file names is not in the wanted order
         final List<String> strains = new ArrayList<>();
+        // important to keep order
+        final Map<Integer, String> strainMap = new LinkedHashMap<>();
         try {
             try (BufferedReader in = new BufferedReader(new FileReader(strainFile))) {
                 String line = in.readLine(); // read a line at a time
@@ -42,21 +45,18 @@ public class ParserUtils {
         // collect the list of all the strain ids given the list of strain names for the Sanger data
         PreparedStatement strainIdStmt = null;
         ResultSet resultStrainIds = null;
-        List<Integer> strainIds = new ArrayList<>();
-        List<String> strainNames = new ArrayList<>();
         List<String> unfound = new ArrayList<>();
         String strStrainIds = "";
         for (int i = 0; i < strains.size(); i++) {
             try {
-                strainIdStmt = connection.prepareStatement("SELECT id, name from strain where name like ?");
-                strainIdStmt.setString(1, strains.get(i) + "%");
+                strainIdStmt = connection.prepareStatement("SELECT id, name from strain where name=?");
+                strainIdStmt.setString(1, strains.get(i));
                 resultStrainIds = strainIdStmt.executeQuery();
                 if (resultStrainIds.next()) {
                     int id = resultStrainIds.getInt("id");
                     String name = resultStrainIds.getString("name");
-                    strainIds.add(id);
-                    strainNames.add(name);
-                    strStrainIds = strStrainIds + ":" + id;
+                    strainMap.put(id, name);
+                    strStrainIds = strStrainIds.equals("") ? String.valueOf(id) : strStrainIds + ":" + id;
                 } else {
                     // not found
                     unfound.add(strains.get(i));
@@ -74,7 +74,7 @@ public class ParserUtils {
             System.out.println("All samples were found in the DB.");
         } else {
             // search in synonyms
-            List<String> unfound2 = (List<String>) copyList(unfound);
+            List<String> unfound2 = (List<String>) Utils.copyList(unfound);
             for (String strain : unfound2) {
                 try {
                     strainIdStmt = connection.prepareStatement("SELECT id, name, synonyms from strain where synonyms like ?");
@@ -87,8 +87,7 @@ public class ParserUtils {
                         String[] synonymsArray = synonyms.split("\\|");
                         for (String synonym : synonymsArray) {
                             if (synonym.equals(strain)) {
-                                strainIds.add(id);
-                                strainNames.add(name);
+                                strainMap.put(id, name);
                                 strStrainIds = strStrainIds + ":" + id;
                                 unfound.remove(strain);
                             }
@@ -113,89 +112,8 @@ public class ParserUtils {
                         "provided are present in the strain table.");
             }
         }
-        // INSERT in MVAR Strain table
-        if (insertNewStrains) {
-            insertIntoMvarStrain(connection, strainNames);
-        }
-
         System.out.println("The list of strain Ids is the following : " + strStrainIds);
-        return strainIds;
-    }
-
-    public static <T> List<?> copyList(List<T> list) {
-        List<T> copiedList = new ArrayList<>();
-        for (T item : list) {
-            copiedList.add(item);
-        }
-        return copiedList;
-    }
-
-    private static void insertIntoMvarStrain(Connection connection, List<String> strainNames) throws SQLException {
-        // check if new strains are in the mvar strain table
-        // Build the select query
-        PreparedStatement selectFromMvarStrain = null;
-        ResultSet resultFromMvarStrain = null;
-        LinkedHashMap<Integer, String> missingStrains = new LinkedHashMap<>();
-        String mvarStrainSelectQuery = "select name, strain_id from mvar_strains where name in (";
-        StringBuilder sql = new StringBuilder();
-        sql.append(mvarStrainSelectQuery);
-        for (int i = 0; i < strainNames.size(); i++) {
-            sql.append("?");
-            if (i + 1 < strainNames.size()) {
-                sql.append(",");
-            }
-        }
-        sql.append(")");
-
-        try {
-            selectFromMvarStrain = connection.prepareStatement(sql.toString());
-            int idx = 0;
-            for (String strain : strainNames) {
-                selectFromMvarStrain.setString(idx + 1, strain);
-                idx++;
-            }
-            resultFromMvarStrain = selectFromMvarStrain.executeQuery();
-            // add missing strains to a map
-            while (resultFromMvarStrain.next()) {
-                int strainId = resultFromMvarStrain.getInt("strain_id");
-                String strainName = resultFromMvarStrain.getString("name");
-                missingStrains.put(strainId, strainName);
-            }
-        } catch (SQLException exc) {
-            throw exc;
-        } finally {
-            if (resultFromMvarStrain != null)
-                resultFromMvarStrain.close();
-            if (selectFromMvarStrain != null)
-                selectFromMvarStrain.close();
-        }
-
-        // insert missing strains into mvar strain table
-        PreparedStatement insertStrainsStmt = connection.prepareStatement("INSERT INTO mvar_strains (name, strain_id)  VALUES (?, ?)");
-        try {
-            String strainLog = "";
-            for (Map.Entry<Integer, String> strain : missingStrains.entrySet()) {
-                int id = strain.getKey();
-                String name = strain.getValue();
-                // insert id into strain table (MVAR strains)
-                insertStrainsStmt.setString(1, name);
-                insertStrainsStmt.setInt(2, id);
-                insertStrainsStmt.addBatch();
-                if (strainLog.equals("")) {
-                    strainLog = name;
-                } else {
-                    strainLog = strainLog + ", " + name;
-                }
-            }
-            insertStrainsStmt.executeBatch();
-            System.out.println("Strains " + strainLog + " added to mvar_strain table.");
-//            connection.commit();
-        } catch (SQLException exc) {
-            throw exc;
-        } finally {
-            if (insertStrainsStmt != null)
-                insertStrainsStmt.close();
-        }
+        return strainMap;
     }
 
     /**
