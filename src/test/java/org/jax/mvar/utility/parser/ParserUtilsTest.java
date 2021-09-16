@@ -53,21 +53,6 @@ public class ParserUtilsTest {
     }
 
     /**
-     * Test the insertIntoMvarStrains method
-     * For now it is ignored as there is no test DB to test the method on.
-     */
-    @Test
-    @Ignore
-    public void testInsertIntoMvarStrains() {
-        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
-            Map<Integer, String> strainMap = ParserUtils.getStrainsFromFile(connection, new File("src/test/resources/snpgrid_samples.txt"));
-            InsertUtils.insertIntoMvarStrain(connection, strainMap);
-//            Assert.assertEquals(580, strainIds.size());
-        } catch (Exception exc) {
-            exc.printStackTrace();
-        }    }
-
-    /**
      * Test the getHeader method
      */
     @Test

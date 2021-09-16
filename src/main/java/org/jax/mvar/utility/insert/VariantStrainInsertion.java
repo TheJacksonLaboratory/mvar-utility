@@ -34,7 +34,9 @@ public class VariantStrainInsertion {
 
             Map<Integer, String> strainsMap = ParserUtils.getStrainsFromFile(connection, new File(strainFilePath));
             // INSERT in MVAR Strain table
-            InsertUtils.insertIntoMvarStrain(connection, strainsMap);
+            List<Map> strainMaps = InsertUtils.insertIntoMvarStrain(connection, strainsMap);
+            // INSERT imputed mvar strain relationship
+            InsertUtils.insertMvarStrainImputed(connection, strainMaps.get(0), strainMaps.get(1), imputed);
 
             if (stopId == -1) {
                 // count all genotypes data saved
@@ -57,7 +59,7 @@ public class VariantStrainInsertion {
             } else {
                 numberOfRecords = stopId;
             }
-            System.out.println("NumberOfRows = " + (numberOfRecords - startId) + " to be parsed.");
+            System.out.println("NumberOfRows = " + (numberOfRecords - startId + 1) + " to be parsed.");
             System.out.println("Batch size is " + batchSize);
             int selectIdx = startId;
             long start, elapsedTimeMillis;
@@ -128,14 +130,15 @@ public class VariantStrainInsertion {
             VariantInsertion.innoDBSetOptions(connection, false);
             connection.setAutoCommit(false);
 
-            if (strainMap.size() != variantIdGenotypeMap.size())
-                throw new Exception("Error: the number of strains and the number columns in genotype temp table are different");
             List<Integer> strainIds = new ArrayList<>();
             strainIds.addAll(strainMap.keySet());
 
             for (Map.Entry<Integer, String[]> entry : variantIdGenotypeMap.entrySet()) {
                 int variantId = entry.getKey();
                 String[] geno = entry.getValue();
+                if (strainMap.size() != geno.length)
+                    throw new Exception("Error: the number of strains and the number columns in genotype temp table are different:" + strainMap.size() + "!=" + geno.length);
+
                 for (int i = 0; i < geno.length; i++) {
                     // if there is a genotype data for the strain
                     // we don't add the entry if 0/0

@@ -41,6 +41,7 @@ public class ParserUtils {
         } catch (Exception exc) {
             exc.printStackTrace();
         }
+        if (strains.size() == 0) throw new AssertionError("The strain file could not be properly read.");
 
         // collect the list of all the strain ids given the list of strain names for the Sanger data
         PreparedStatement strainIdStmt = null;
@@ -74,8 +75,7 @@ public class ParserUtils {
             System.out.println("All samples were found in the DB.");
         } else {
             // search in synonyms
-            List<String> unfound2 = (List<String>) Utils.copyList(unfound);
-            for (String strain : unfound2) {
+            for (String strain : unfound) {
                 try {
                     strainIdStmt = connection.prepareStatement("SELECT id, name, synonyms from strain where synonyms like ?");
                     strainIdStmt.setString(1, "%" + strain + "%");
@@ -87,9 +87,8 @@ public class ParserUtils {
                         String[] synonymsArray = synonyms.split("\\|");
                         for (String synonym : synonymsArray) {
                             if (synonym.equals(strain)) {
-                                strainMap.put(id, name);
-                                strStrainIds = strStrainIds + ":" + id;
-                                unfound.remove(strain);
+                                System.out.println("Strain id " + id + " with name " + name + " and synonym " + synonym +
+                                        " was found in the DB. Please make sure the strain name is the same in the strain file as the one in the DB.");
                             }
                         }
                     }
@@ -102,15 +101,9 @@ public class ParserUtils {
                         strainIdStmt.close();
                 }
             }
-            if (unfound.size() > 0) {
-                System.out.println("The following samples were not found in the DB:");
-                for (String strain : unfound) {
-                    System.out.println(strain);
-                }
-                // We stop the insertion as if there is a missing strain, the relationship insertion will fail.
-                throw new IllegalStateException("Error finding the above strains. Make sure that all the strains in the strain file " +
-                        "provided are present in the strain table.");
-            }
+            // We stop the insertion as if there is a missing strain, the relationship insertion will fail.
+            throw new IllegalStateException("Error finding the above strains. Make sure that all the strains in the strain file " +
+                    "provided are present in the strain table and that the names are identical.");
         }
         System.out.println("The list of strain Ids is the following : " + strStrainIds);
         return strainMap;
@@ -119,12 +112,12 @@ public class ParserUtils {
     /**
      * Returns the header of the vcf file as a String
      *
-     * @param vcfFile
+     * @param headerFile can be a header file or a vcf file with a header
      * @return
      */
-    public static String getHeader(File vcfFile) {
+    public static String getHeader(File headerFile) {
         String header = "";
-        try (BufferedReader in = new BufferedReader(new FileReader(vcfFile))) {
+        try (BufferedReader in = new BufferedReader(new FileReader(headerFile))) {
             String line = in.readLine(); // read a line at a time
             int idx = 0;
             while (line != null && line.startsWith("##")) { // loop till you have no more lines
