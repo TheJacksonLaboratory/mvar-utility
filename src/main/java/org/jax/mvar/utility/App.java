@@ -45,6 +45,7 @@ public class App {
         arguments.put("check_canon", false);
         arguments.put("data_path", "");
         arguments.put("imputed", (byte)0);
+        arguments.put("header_path", "");
 
         for (int i=0; i < args.length; i++) {
             if (args[i].startsWith("-")) {
@@ -71,6 +72,10 @@ public class App {
                         break;
                     case "-imputed":
                         arguments.put("imputed", Byte.valueOf(args[i+1]));
+                        break;
+                    case "-header_path":
+                        arguments.put("header_path", args[i+1]);
+                        break;
                     default:
                         throw new IllegalStateException("Unexpected parameter: " + args[0]);
                 }
@@ -88,7 +93,7 @@ public class App {
             int startId = (int) arguments.get("start_id");
             int stopId = (int) arguments.get("stop_id");
             String path = (String) arguments.get("data_path");
-            Set<String> keys = arguments.keySet();
+            String headerFilePath = (String) arguments.get("header_path");
             if (type.equals("MGI")) {         // Check MGI vcf data against the MVAR database for duplicates
                 // check MGI variants in DB
                 MGIChecker checker = new MGIChecker();
@@ -105,6 +110,7 @@ public class App {
                 }
             } else if (type.equals("INSERT")){
                 boolean checkForCanon = (boolean) arguments.get("check_canon");
+                File headerFile = new File(headerFilePath);
                 File f = new File(path);
                 assert f != null;
                 if (f.isDirectory()) {
@@ -113,11 +119,11 @@ public class App {
                     Arrays.sort(files);
                     for (File file : files) {
                         if (file.isFile() && (file.getName().endsWith(".gz") || (file.getName().endsWith(".vcf"))))
-                            insertService.loadVCF(file, batchSize, false);
+                            insertService.loadVCF(file, headerFile, batchSize, false);
                     }
 
                 } else if (f.isFile() && (f.getName().endsWith(".gz") || (f.getName().endsWith(".vcf")))) {
-                    insertService.loadVCF(f, batchSize, checkForCanon);
+                    insertService.loadVCF(f, f, batchSize, checkForCanon);
                 } else {
                     throw new Exception("Could not find file or directory : " + f.getPath());
                 }

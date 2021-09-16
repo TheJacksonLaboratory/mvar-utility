@@ -20,10 +20,13 @@ public class VcfParser {
      * Parse a VCF file. If checkForCanon is true, a batch search for canonicals in the MVAR DB will be done
      * and the result HashMap of variations will only contain variants that are not found in the DB.
      * @param vcfFile
+     * @param headerFile If one input file, headerFile can be the same as the vcfFile.
+     *                   If multiple, and only the first file has a header, you need to add a header file, so that the annotations
+     *                   can be found and used for the insertion.
      * @param checkForCanon
      * @return
      */
-    public static Map<String, Variant> parseVcf(File vcfFile, boolean checkForCanon) throws Exception {
+    public static Map<String, Variant> parseVcf(File vcfFile, File headerFile, boolean checkForCanon) throws Exception {
         Map<String, Variant> variations;
 
         if (vcfFile.getName().endsWith(".vcf")) {
@@ -34,7 +37,7 @@ public class VcfParser {
                 // Create the object of BufferedReader object
                 BufferedReader br = new BufferedReader(instrm)
             ) {
-                InfoParser infoParser = new ConsequenceParser(vcfFile);
+                InfoParser infoParser = new ConsequenceParser(headerFile);
                 variations = parse(vcfFile.getName(), br, infoParser, checkForCanon);
             }
         } else {
@@ -44,7 +47,7 @@ public class VcfParser {
                 Reader decoder = new InputStreamReader(gzipStream, StandardCharsets.UTF_8);
                 BufferedReader br = new BufferedReader(decoder)
             ) {
-                InfoParser vepParser = new ConsequenceParser(vcfFile);
+                InfoParser vepParser = new ConsequenceParser(headerFile);
                 variations = parse(vcfFile.getName(), br, vepParser,checkForCanon);
             }
         }

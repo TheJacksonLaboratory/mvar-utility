@@ -30,17 +30,19 @@ public class VariantInsertion {
      * Loads a VCF file in the database
      *
      * @param vcfFile       VCF file, can be gzipped or vcf format
+     * @param headerFile    If only one file is used to input data and that file has a header, then this parameter can be
+     *                      the vcfFile. If not (multiple file, and they don't have a header, then a separate header file is needed.
      * @param batchNumber   a batch number of 1000 is advised if enough memory (7G) is allocated to the JVM
      *                      Ultimately, the batch number depends on the File size and the JVM max and min memory
      * @param checkForCanon
      */
-    public void loadVCF(File vcfFile, int batchNumber, boolean checkForCanon) {
+    public void loadVCF(File vcfFile, File headerFile, int batchNumber, boolean checkForCanon) {
         batchSize = batchNumber;
         System.out.println("Batch size = " + batchSize);
-        infoParser = new AnnotationParser(vcfFile);
         try {
+            infoParser = new AnnotationParser(headerFile);
             // parse variants into a Map
-            Map<String, Variant> variations = VcfParser.parseVcf(vcfFile, checkForCanon);
+            Map<String, Variant> variations = VcfParser.parseVcf(vcfFile, headerFile, checkForCanon);
             // Persist data
             persistData(variations);
         } catch (Exception e) {
@@ -65,6 +67,7 @@ public class VariantInsertion {
     private void persistData(Map<String, Variant> variations) throws Exception {
         // get Properties
         Config config = new Config();
+
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
             final StopWatch stopWatch = new StopWatch();
             stopWatch.start();
@@ -309,6 +312,8 @@ public class VariantInsertion {
                     insertVariants.addBatch();
                     // insert variant id to genotype temp with the current idx
                     insertGenotypeTemp.setInt(1, canonIdx);
+
+                    canonIdx++;
                 } else {
                     // insert existing variant id
                     insertGenotypeTemp.setInt(1, variant.getExistingId());
@@ -317,8 +322,6 @@ public class VariantInsertion {
                 insertGenotypeTemp.setString(2, variant.getFormat());
                 insertGenotypeTemp.setString(3, variant.getGenotypeData());
                 insertGenotypeTemp.addBatch();
-
-                canonIdx++;
 
             }
             insertCanonVariants.executeBatch();
