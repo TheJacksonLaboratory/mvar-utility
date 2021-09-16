@@ -138,10 +138,11 @@ public class ParserUtils {
      *
      * @param id
      * @param header
-     * @return
+     * @return list of annotation keys
+     * @throws Exception
      */
     public static List<String> getAnnotationKeys(String id, String header) throws Exception {
-        List<String> annotations = new ArrayList<>();
+        List<String> annotations = new LinkedList<>();
         String[] headerLines = header.split("\n");
         if (headerLines.length <= 1)
             throw new Exception("The header string provided does not have enough lines.");

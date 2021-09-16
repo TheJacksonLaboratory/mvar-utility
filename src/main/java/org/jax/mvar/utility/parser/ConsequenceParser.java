@@ -40,7 +40,7 @@ public class ConsequenceParser extends InfoParser {
     public String getCSQ(String consequence, String id) throws Exception {
         int idx = getAnnotationKeys().indexOf(id);
         if (consequence != null && !consequence.isEmpty()) {
-            return consequence.split("\\|")[idx];
+            return consequence.split("\\|", this.annotationKeys.size())[idx];
         }
         return "";
     }
@@ -51,31 +51,24 @@ public class ConsequenceParser extends InfoParser {
      * @return a list of two values : 1rst is rsId and 2nd is hgvs
      */
     public List<String> getRsIDAndHGVS(String consequence) throws Exception {
-        if(consequence.equals("CSQ=A|intergenic_variant|MODIFIER|||||||||||||||||||SNV||||||||||||||||||||||||||||||||||||||||||||||"))
-            System.out.println();
         int rsIdIdx = getAnnotationKeys().indexOf("Existing_variation");
         int hgvsIdx = getAnnotationKeys().indexOf("HGVSg");
-        try {
-            if (consequence != null && !consequence.isEmpty()) {
-                List<String> result = new ArrayList<>();
-                String csq = consequence.split("=")[1];
-                String[] allCsqs = csq.split(",");
-                String[] csqs = allCsqs[0].split("\\|");
-                result.add(csqs[rsIdIdx]);
-                String hgvsg;
-                if (csqs[hgvsIdx].contains(":")) {
-                    // we remove the suffix with "chr:" if any
-                    hgvsg = csqs[hgvsIdx].split(":")[1];
-                } else {
-                    hgvsg = csqs[hgvsIdx];
-                }
-                result.add(hgvsg);
-                return result;
+        if (consequence != null && !consequence.isEmpty()) {
+            List<String> result = new ArrayList<>();
+            String csq = consequence.split("=")[1];
+            String[] allCsqs = csq.split(",");
+            String[] csqs = allCsqs[0].split("\\|", this.annotationKeys.size());
+            result.add(csqs[rsIdIdx]);
+            String hgvsg;
+            if (csqs[hgvsIdx].contains(":")) {
+                // we remove the suffix with "chr:" if any
+                hgvsg = csqs[hgvsIdx].split(":")[1];
+            } else {
+                hgvsg = csqs[hgvsIdx];
             }
-        } catch (Exception exc) {
-            throw new Exception("Error with the following csq: " + consequence);
+            result.add(hgvsg);
+            return result;
         }
-
         return null;
     }
 }
