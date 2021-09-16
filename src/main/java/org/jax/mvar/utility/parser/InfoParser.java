@@ -24,13 +24,16 @@ abstract public class InfoParser {
 
     String header;
     String[] infos;
+    List<String> annotationKeys;
 
     /**
      * Constructor
-     * @param file
+     * @param headerFile
+     * @throws Exception
      */
-    public InfoParser(File file) {
-        this.header = ParserUtils.getHeader(file);
+    public InfoParser(File headerFile) throws Exception {
+        this.header = ParserUtils.getHeader(headerFile);
+        this.annotationKeys = ParserUtils.getAnnotationKeys(getInfoId(), this.header);
     }
 
     /**
@@ -43,8 +46,8 @@ abstract public class InfoParser {
      * Returns the expected length of this functional annotation
      * @return
      */
-    int getInfoLength() throws Exception {
-        return getAnnotationKeys().size();
+    int getInfoLength() {
+        return this.annotationKeys.size();
     }
 
     /**
@@ -86,10 +89,9 @@ abstract public class InfoParser {
     /**
      * List of annotation keys for the given implementation
      * @return
-     * @throws Exception
      */
-    public List<String> getAnnotationKeys() throws Exception {
-        return ParserUtils.getAnnotationKeys(getInfoId(), this.header);
+    public List<String> getAnnotationKeys() {
+        return this.annotationKeys;
     }
 
     /**

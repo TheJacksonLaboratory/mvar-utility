@@ -10,8 +10,9 @@ class SvAnnotationParser extends InfoParser {
      * Constructor
      *
      * @param file
+     * @throws Exception
      */
-    public SvAnnotationParser(File file) {
+    public SvAnnotationParser(File file) throws Exception {
         super(file);
     }
 

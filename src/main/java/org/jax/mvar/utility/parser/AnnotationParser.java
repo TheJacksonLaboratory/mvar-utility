@@ -24,8 +24,9 @@ public class AnnotationParser extends InfoParser {
      * Constructor
      *
      * @param file
+     * @throws Exception
      */
-    public AnnotationParser(File file) {
+    public AnnotationParser(File file) throws Exception {
         super(file);
     }
 

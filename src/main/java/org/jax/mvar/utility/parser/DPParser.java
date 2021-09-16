@@ -12,8 +12,9 @@ class DPParser extends InfoParser {
      * Constructor
      *
      * @param file
+     * @throws Exception
      */
-    public DPParser(File file) {
+    public DPParser(File file) throws Exception {
         super(file);
     }
 
