@@ -4,7 +4,7 @@
 129S1/SvImJ
 129S2/SvHsd
 129S4/SvJaeJ
-129S5SvEv<Brd>
+129S5/SvEvBrd
 129S6
 129S6/SvEv
 129S6/SvEvTac
@@ -517,7 +517,7 @@ MRL/MpJ-Fas<lpr>/J
 MSM/MsJ
 NH/KiPtJ
 NOD.B10Sn-H2<b>/J
-NOD.CB17-Prkdc<scid>/J
+NOD.Cg-Prkdc<scid>/J
 NOD.Cg-Prkdc<scid> Il2rg<tm1Wjl>/SzJ
 NOD/ShiLtJ
 NON/ShiLtJ
@@ -541,8 +541,8 @@ PN/nBSwUmabJ
 PWD/PhJ
 PWK/PhJ
 Pohn/Deh
-QSi3
-QSi5
+QSi3/Ianm
+QSi5/Ianm
 RBA/DnJ
 RBB/DnJ
 RBF/DnJ
