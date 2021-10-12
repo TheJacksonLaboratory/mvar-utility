@@ -17,8 +17,8 @@ public class VCFConverter {
      * @param separator separator used in file
      * @throws Exception
      */
-    public static LinkedHashMap<String, Variant> parseCSV(String csvFilePath, String separator) throws Exception {
-        LinkedHashMap<String, Variant> variations = new LinkedHashMap<>();
+    public static Map<String, Variant> parseCSV(String csvFilePath, String separator) throws Exception {
+        Map<String, Variant> variations = new LinkedHashMap<>();
 
         // read file line by line
         try(InputStream is = new FileInputStream(csvFilePath);
@@ -47,9 +47,9 @@ public class VCFConverter {
                         String genotypes = getGTFields(genotypeData, alleles);
                         Variant var;
                         if (alleles.length == 2)
-                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1], "", "", "", "", "", genotypes);
+                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1], "", "", "", "", "", "", "", genotypes);
                         else
-                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1].concat(alleles[2]), "", "", "", "", "", genotypes);
+                            var = new Variant(columns[0], columns[1], columns[2], alleles[0], alleles[1].concat(alleles[2]), "", "", "", "", "", "", "", genotypes);
 
                         if (variations.containsKey(var.getVariantRefTxt()))
                             System.out.println(var.getVariantRefTxt() + " already exists and will be overridden.");
@@ -97,7 +97,7 @@ public class VCFConverter {
      * @param vcfFilePath
      * @throws Exception
      */
-    public static void writeVCF(LinkedHashMap<String, Variant> variants, String vcfFilePath) throws Exception {
+    public static void writeVCF(Map<String, Variant> variants, String vcfFilePath) throws Exception {
 
         if (!vcfFilePath.endsWith(".vcf"))
             throw new Exception("The file name should have the '.vcf' extension.");
@@ -130,7 +130,7 @@ public class VCFConverter {
                 Variant variant = variantEntry.getValue();
                 String line = variant.getChr() + sep + variant.getPos() + sep + variant.getId() + sep
                         + variant.getRef() + sep + variant.getAlt() + sep + variant.getQual() + sep
-                        + variant.getFilter() + sep + variant.getAnnotation() + sep + variant.getFormat() + sep;
+                        + variant.getFilter() + sep + variant.getJannovarAnnotation() + sep + variant.getFormat() + sep;
                 String genotypeStr = variant.getGenotypeData();
                 String[] genotypeData = genotypeStr.split(",");
                 for (int i = 0; i < genotypeData.length; i++) {

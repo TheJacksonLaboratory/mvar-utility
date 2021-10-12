@@ -5,14 +5,10 @@ import org.jax.mvar.utility.Config;
 
 import java.sql.*;
 import java.util.*;
+import java.util.Date;
 
 public class VariantTranscriptInsertion {
 
-    private final static String SELECT_COUNT = "SELECT COUNT(*) from variant_transcript_temp";
-    private final static String SELECT_VARIANT_TRANSCRIPT_TEMP = "SELECT id, transcript_ids FROM variant_transcript_temp WHERE id BETWEEN ? AND ?";
-    private final static String INSERT_VARIANT_TRANSCRIPTS = "INSERT INTO variant_transcript (variant_transcripts_id, transcript_id, most_pathogenic) VALUES (?,?,?)";
-    private final static String SELECT_SOURCE_ID = "SELECT id from source WHERE name=?";
-    private final static String INSERT_VARIANT_SOURCE = "INSERT INTO variant_source (variant_sources_id, source_id) VALUES (?,?)";
 
     /**
      * Insert variant/transcripts and variant/source relationships given the variant_transcript_temp table and the source Name
@@ -22,7 +18,7 @@ public class VariantTranscriptInsertion {
      * @param sourceName
      */
     public static void insertVariantTranscriptSourceRel(int batchSize, int startId, String sourceName) throws Exception {
-        System.out.println("Inserting Variant Transcript relationships...");
+        System.out.println("Inserting Variant Transcript relationships, " + new Date());
         final StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         // get Properties
@@ -70,7 +66,7 @@ public class VariantTranscriptInsertion {
         int sourceId = 0;
         try {
             // get Source id
-            selectSourceIdStmt = connection.prepareStatement(SELECT_SOURCE_ID);
+            selectSourceIdStmt = connection.prepareStatement("SELECT id from source WHERE name=?");
             selectSourceIdStmt.setString(1, sourceName);
             sourceIdResult = selectSourceIdStmt.executeQuery();
             if (sourceIdResult.next()){
@@ -96,7 +92,7 @@ public class VariantTranscriptInsertion {
         ResultSet resultCount = null;
         int numberOfRecords = 0;
         try {
-            countStmt = connection.prepareStatement(SELECT_COUNT);
+            countStmt = connection.prepareStatement("SELECT COUNT(*) from variant_transcript_temp");
             resultCount = countStmt.executeQuery();
             if (resultCount.next()) {
                 numberOfRecords = resultCount.getInt(1);
@@ -116,10 +112,10 @@ public class VariantTranscriptInsertion {
     private static Map<Long, Set<Long>> selectVariantTranscriptsFromTemp(Connection connection, int start, int stop) throws SQLException {
         PreparedStatement selectStmt = null;
         ResultSet result = null;
-        Map<Long, Set<Long>> variantIdTranscriptIdsMap = new HashMap();
+        Map<Long, Set<Long>> variantIdTranscriptIdsMap = new LinkedHashMap<>();
 
         try {
-            selectStmt = connection.prepareStatement(SELECT_VARIANT_TRANSCRIPT_TEMP);
+            selectStmt = connection.prepareStatement("SELECT id, transcript_ids FROM variant_transcript_temp WHERE id BETWEEN ? AND ?");
             selectStmt.setInt(1, start);
             selectStmt.setInt(2, stop);
             result = selectStmt.executeQuery();
@@ -150,8 +146,8 @@ public class VariantTranscriptInsertion {
         PreparedStatement insertVariantTranscripts = null, insertVariantSources = null;
 
         try {
-            insertVariantTranscripts = connection.prepareStatement(INSERT_VARIANT_TRANSCRIPTS);
-            insertVariantSources = connection.prepareStatement(INSERT_VARIANT_SOURCE);
+            insertVariantTranscripts = connection.prepareStatement("INSERT INTO variant_transcript (variant_transcripts_id, transcript_id, most_pathogenic) VALUES (?,?,?)");
+            insertVariantSources = connection.prepareStatement("INSERT INTO variant_source (variant_sources_id, source_id) VALUES (?,?)");
 
             connection.setAutoCommit(false);
             for (Map.Entry<Long, Set<Long>> entry : variantIdTranscriptIdsMap.entrySet()) {

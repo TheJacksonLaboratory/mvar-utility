@@ -1,10 +1,20 @@
 package org.jax.mvar.utility.parser;
 
-import java.util.Arrays;
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 
 class SvAnnotationParser extends InfoParser {
+
+    /**
+     * Constructor
+     *
+     * @param file
+     * @throws Exception
+     */
+    public SvAnnotationParser(File file) throws Exception {
+        super(file);
+    }
 
     @Override
     public String getInfoId() {
@@ -21,11 +31,5 @@ class SvAnnotationParser extends InfoParser {
     public List<Map<String, String>> parse(String infoString) throws Exception {
         // ##INFO=<ID=SVANN,Number=1,Type=String,Description="Functional SV Annotation:'Annotation|Annotation_Impact|Gene_Name|Gene_ID|Feature_Type|Feature_ID|Transcript_BioType|ERRORS / WARNINGS / INFO'">
         return super.parse(infoString);
-    }
-
-    @Override
-    public List<String> getAnnotationKeys() {
-        return Arrays.asList("Allele", "Gene", "Feature", "Feature_type",
-                "Consequence", "cDNA_position", "CDS_position", "Protein_position");
     }
 }
