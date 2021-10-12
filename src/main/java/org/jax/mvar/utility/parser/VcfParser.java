@@ -137,7 +137,7 @@ public class VcfParser {
                         myIdx++;
                     }
                 }
-                System.out.println(myIdx + " variants were found.");
+                System.out.println(myIdx + " canonical variants were found.");
 
             } catch (SQLException exc) {
                 throw exc;

@@ -7,6 +7,7 @@ import org.jax.mvar.utility.parser.ParserUtils;
 import java.io.*;
 import java.sql.*;
 import java.util.*;
+import java.util.Date;
 
 public class VariantStrainInsertion {
 
@@ -23,7 +24,7 @@ public class VariantStrainInsertion {
      * @param imputed byte value where 0 = non-imputed, 1=snpgrid imputed, 2=mgi imputed
      */
     public static void insertVariantStrainRelationships(int batchSize, int startId, int stopId, String strainFilePath, byte imputed) {
-        System.out.println("Inserting Variant Strain relationships...");
+        System.out.println("Inserting Variant Strain relationships, " + new Date());
         final StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         // get Properties
@@ -72,7 +73,7 @@ public class VariantStrainInsertion {
                     insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainsMap, imputed);
                     variantIdGenotypeMap.clear();
                     elapsedTimeMillis = System.currentTimeMillis() - start;
-                    System.out.println("Progress: " + i + " of " + numberOfRecords + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1));
+                    System.out.println("Progress: " + i + " of " + numberOfRecords + ", left: " + (numberOfRecords - i) + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1) + ", " + new Date());
                     selectIdx = selectIdx + batchSize;
                 }
             }
@@ -83,7 +84,7 @@ public class VariantStrainInsertion {
                 insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainsMap, imputed);
                 variantIdGenotypeMap.clear();
                 elapsedTimeMillis = System.currentTimeMillis() - start;
-                System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords);
+                System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords + ", " + new Date());
             }
 
             System.out.println("Variant/Strain relationships and genotype data inserted in " + stopWatch);

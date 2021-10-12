@@ -5,6 +5,7 @@ import org.jax.mvar.utility.Config;
 
 import java.sql.*;
 import java.util.*;
+import java.util.Date;
 
 public class VariantTranscriptInsertion {
 
@@ -17,7 +18,7 @@ public class VariantTranscriptInsertion {
      * @param sourceName
      */
     public static void insertVariantTranscriptSourceRel(int batchSize, int startId, String sourceName) throws Exception {
-        System.out.println("Inserting Variant Transcript relationships...");
+        System.out.println("Inserting Variant Transcript relationships, " + new Date());
         final StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         // get Properties

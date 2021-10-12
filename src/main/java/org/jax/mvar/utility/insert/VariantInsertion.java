@@ -38,6 +38,7 @@ public class VariantInsertion {
      */
     public void loadVCF(File vcfFile, File headerFile, int batchNumber, boolean checkForCanon) {
         batchSize = batchNumber;
+        System.out.println("Parsing VCF file and inserting parsed variants into DB, " + new Date());
         System.out.println("Batch size = " + batchSize);
         try {
             infoParser = new AnnotationParser(headerFile);
@@ -73,8 +74,8 @@ public class VariantInsertion {
             stopWatch.start();
 
             // insert variants parsed
-            insertVariantsBatch(connection, variations);
-            System.out.println(variations.keySet().size() + " inserted in " + stopWatch + ", " + new Date());
+            int newVariantsInserted = insertVariantsBatch(connection, variations);
+            System.out.println(newVariantsInserted + " new variants inserted in " + stopWatch + ", " + new Date());
             stopWatch.reset();
         }
     }
@@ -138,8 +139,9 @@ public class VariantInsertion {
      *
      * @param connection jdbc connection
      * @param variations LinkedHashMap of variations
+     * @return number of new variants inserted
      */
-    private void insertVariantsBatch(Connection connection, Map<String, Variant> variations) throws Exception {
+    private int insertVariantsBatch(Connection connection, Map<String, Variant> variations) throws Exception {
         List<Variant> batchOfVars = new FastList<>();
         Set<String> geneSet = new HashSet<>();
         Set<String> transcriptSet = new HashSet<>();
@@ -147,7 +149,7 @@ public class VariantInsertion {
         List<Map<String, String>> annotationParsed;
 //        InfoParser infoParser = new AnnotationParser();
         // Retrieve the last id of canons
-        int canonIdx;
+        int canonIdx, variantInsertedNumber;
         String selectLastIdCanonical = "select id from variant_canon_identifier order by id desc limit 1 offset 0;";
         try (PreparedStatement selectLastCanonicalIdStmt = connection.prepareStatement(selectLastIdCanonical)) {
             ResultSet idResult = selectLastCanonicalIdStmt.executeQuery();
@@ -156,6 +158,7 @@ public class VariantInsertion {
             } else {
                 canonIdx = idResult.getInt("id") + 1;
             }
+            variantInsertedNumber = canonIdx;
         }
 
         innoDBSetOptions(connection, false);
@@ -186,7 +189,7 @@ public class VariantInsertion {
 
         //last batch
         if (batchOfVars.size() > 0) {
-            batchInsertVariantsJDBC2(connection, batchOfVars, geneSet, transcriptSet, canonIdx);
+            canonIdx = batchInsertVariantsJDBC2(connection, batchOfVars, geneSet, transcriptSet, canonIdx);
             batchOfVars.clear();
             geneSet.clear();
             transcriptSet.clear();
@@ -200,6 +203,10 @@ public class VariantInsertion {
         }
 
         innoDBSetOptions(connection, true);
+
+        // calculate the number of new variants inserted
+        variantInsertedNumber = canonIdx - variantInsertedNumber;
+        return variantInsertedNumber;
     }
 
     /**
