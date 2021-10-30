@@ -41,7 +41,7 @@ public class App {
         arguments.put("batch_size", 10000);
         arguments.put("start_id", 1);
         arguments.put("stop_id", -1);
-        arguments.put("source_name", "Sanger V7");
+        arguments.put("source_name", "Sanger_V7");
         arguments.put("check_canon", false);
         arguments.put("data_path", "");
         arguments.put("imputed", (byte)0);

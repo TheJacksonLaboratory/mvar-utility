@@ -16,6 +16,7 @@ public class VariantTranscriptInsertion {
      * @param batchSize
      * @param startId in case a process needs to be re-run from a certain variant_id (instead of starting from the beginning all over again
      * @param sourceName
+     * @throws Exception
      */
     public static void insertVariantTranscriptSourceRel(int batchSize, int startId, String sourceName) throws Exception {
         System.out.println("Inserting Variant Transcript relationships, " + new Date());
@@ -40,7 +41,7 @@ public class VariantTranscriptInsertion {
                     insertVariantTranscriptSourceInBatch(connection, variantIdTranscriptIdsMap, sourceId);
                     variantIdTranscriptIdsMap.clear();
                     elapsedTimeMillis = System.currentTimeMillis() - start;
-                    System.out.println("Progress: " + i + " of " + numberOfRecords + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1));
+                    System.out.println("Progress: " + i + " of " + numberOfRecords + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1) + ". " + new Date());
                     selectIdx = selectIdx + batchSize;
                 }
             }
@@ -51,7 +52,7 @@ public class VariantTranscriptInsertion {
                 insertVariantTranscriptSourceInBatch(connection, variantIdTranscriptIdsMap, sourceId);
                 variantIdTranscriptIdsMap.clear();
                 elapsedTimeMillis = System.currentTimeMillis() - start;
-                System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords);
+                System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords + ". " + new Date());
             }
             // time
             System.out.println("Variant/Transcripts relationships inserted in " + stopWatch);
