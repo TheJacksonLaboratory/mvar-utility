@@ -1,15 +1,13 @@
 package org.jax.mvar.utility.parser;
 
-import org.jax.mvar.utility.Utils;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.zip.GZIPInputStream;
 
 public class ParserUtils {
 
@@ -21,7 +19,7 @@ public class ParserUtils {
      * @param connection sql connection
      * @param strainFile sample file
      * @return Map of strains (where key/value is strain_id/name)
-     * @throws Exception
+     * @throws Exception SQLException or Exception
      */
     public static Map<Integer, String> getStrainsFromFile(Connection connection, File strainFile) throws Exception {
         // Collect list of strains from strainFile
@@ -41,7 +39,7 @@ public class ParserUtils {
         } catch (Exception exc) {
             exc.printStackTrace();
         }
-        if (strains.size() == 0) throw new AssertionError("The strain file could not be properly read.");
+        if (strains.isEmpty()) throw new AssertionError("The strain file could not be properly read.");
 
         // collect the list of all the strain ids given the list of strain names for the Sanger data
         PreparedStatement strainIdStmt = null;
@@ -57,7 +55,7 @@ public class ParserUtils {
                     int id = resultStrainIds.getInt("id");
                     String name = resultStrainIds.getString("name");
                     strainMap.put(id, name);
-                    strStrainIds = strStrainIds.equals("") ? String.valueOf(id) : strStrainIds + ":" + id;
+                    strStrainIds = strStrainIds.isEmpty() ? String.valueOf(id) : strStrainIds + ":" + id;
                 } else {
                     // not found
                     unfound.add(strains.get(i));
@@ -71,7 +69,7 @@ public class ParserUtils {
                     strainIdStmt.close();
             }
         }
-        if (unfound.size() == 0) {
+        if (unfound.isEmpty()) {
             System.out.println("All samples were found in the DB.");
         } else {
             // search in synonyms
@@ -117,18 +115,39 @@ public class ParserUtils {
      */
     public static String getHeader(File headerFile) {
         String header = "";
-        try (BufferedReader in = new BufferedReader(new FileReader(headerFile))) {
-            String line = in.readLine(); // read a line at a time
-            int idx = 0;
-            while (line != null && line.startsWith("##")) { // loop till you have no more lines
-                header = header + line + "\n"; // add the line to your list
-                line = in.readLine(); // try to read another line
-                idx++;
+        if (headerFile.getAbsolutePath().endsWith("gz")) {
+            try {
+                InputStream fileStream = new FileInputStream(headerFile);
+                InputStream gzipStream = null;
+                gzipStream = new GZIPInputStream(fileStream);
+                Reader decoder = new InputStreamReader(gzipStream, StandardCharsets.UTF_8);
+                BufferedReader buffered = new BufferedReader(decoder);
+                header = ParserUtils.getHeaderFromBuffer(buffered);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-            System.out.println("There are " +  idx + " header lines in the vcf file.");
-        } catch (Exception exc) {
-            exc.printStackTrace();
+
+        } else {
+            try (BufferedReader in = new BufferedReader(new FileReader(headerFile))) {
+                header = ParserUtils.getHeaderFromBuffer(in);
+            } catch (Exception exc) {
+                exc.printStackTrace();
+            }
         }
+
+        return header;
+    }
+
+    private static String getHeaderFromBuffer(BufferedReader reader) throws IOException {
+        String header = "";
+        String line = reader.readLine(); // read a line at a time
+        int idx = 0;
+        while (line != null && line.startsWith("##")) { // loop till you have no more lines
+            header = header + line + "\n"; // add the line to your list
+            line = reader.readLine(); // try to read another line
+            idx++;
+        }
+        System.out.println("There are " +  idx + " header lines in the vcf file.");
         return header;
     }
 
