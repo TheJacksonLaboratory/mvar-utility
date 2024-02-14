@@ -52,7 +52,6 @@ public class VariantInsertion {
             // Persist data
             persistData(variations);
         } catch (Exception e) {
-            e.printStackTrace();
             System.err.println("An exception was caught: " + e.getMessage());
         }
     }
@@ -68,7 +67,7 @@ public class VariantInsertion {
      * - external ids
      * 5. construct search doc -- TODO: possible search docs for speed querying of data in site
      *
-     * @param variations
+     * @param variations    map of variations
      */
     private void persistData(Map<String, Variant> variations) throws Exception {
         // get Properties
@@ -104,8 +103,6 @@ public class VariantInsertion {
             uniqueChecksStmt.execute();
             foreignKeyCheckStmt.execute();
             if (!isEnabled) connection.commit();
-        } catch (SQLException exc) {
-            throw exc;
         } finally {
             if (foreignKeyCheckStmt != null)
                 foreignKeyCheckStmt.close();
@@ -117,7 +114,7 @@ public class VariantInsertion {
     private MutableObjectIntMap<?> selectAllFromColumnInList(Connection connection, String tableName, String columnName, Set<String> valueSet) throws SQLException {
         String listOfValueAsStr = "";
         for (String value : valueSet) {
-            listOfValueAsStr = listOfValueAsStr.equals("") ? "'" + value + "'" : listOfValueAsStr.concat(",'").concat(value).concat("'");
+            listOfValueAsStr = listOfValueAsStr.isEmpty() ? "'" + value + "'" : listOfValueAsStr.concat(",'").concat(value).concat("'");
         }
         String SELECT_ALL_FROM_TABLE_IN_LIST = "SELECT ID, " + columnName + " FROM " + tableName + " WHERE " + columnName + " IN (" + listOfValueAsStr + ");";
         Statement selectAllStmt = null;
@@ -129,8 +126,6 @@ public class VariantInsertion {
             while (result.next()) {
                 resultMap.put(result.getString(columnName), result.getInt("ID"));
             }
-        } catch (SQLException exc) {
-            throw exc;
         } finally {
             if (result != null)
                 result.close();
@@ -194,17 +189,16 @@ public class VariantInsertion {
         }
 
         //last batch
-        if (batchOfVars.size() > 0) {
+        if (!batchOfVars.isEmpty()) {
             canonIdx = batchInsertVariantsJDBC2(connection, batchOfVars, geneSet, transcriptSet, canonIdx);
             batchOfVars.clear();
             geneSet.clear();
             transcriptSet.clear();
         }
 
-        // update canonical id
-        // update with canonical check for mm39 TODO
-        if (!checkForCanon && assembly != Assembly.MM39) {
-            String UPDATE_CANONICAL_ID = "update variant_canon_identifier set caid = concat(\'MCA_\', id) where caid is NULL";
+        // update canonical id automatically if not (mm39 && check-canon)
+        if (!checkForCanon || assembly != Assembly.MM39) {
+            String UPDATE_CANONICAL_ID = "update variant_canon_identifier set caid = concat('MCA_', id) where caid is NULL";
             try (PreparedStatement updateCanonicalStmt = connection.prepareStatement(UPDATE_CANONICAL_ID)) {
                 updateCanonicalStmt.execute();
                 connection.commit();
@@ -221,20 +215,20 @@ public class VariantInsertion {
      * Insert variants, and relationships using JDBC
      *
      * @param connection         jdbc connection
-     * @param batchOfVars
-     * @param geneSet
-     * @param transcriptSet
+     * @param batchOfVars        batch of variants
+     * @param geneSet            all genes for the corresponding variants
+     * @param transcriptSet      all transcripts for the corresponding variants
      */
     private int batchInsertVariantsJDBC2(Connection connection, List<Variant> batchOfVars, Set<String> geneSet, Set<String> transcriptSet, int canonIdx) throws Exception {
         // set autocommit on for the selects stmt
         connection.setAutoCommit(true);
 
         // records of all unique gene symbols
-        MutableObjectIntMap geneSymbolRecs = selectAllFromColumnInList(connection, "gene", "symbol", geneSet);
+        MutableObjectIntMap<?> geneSymbolRecs = selectAllFromColumnInList(connection, "gene", "symbol", geneSet);
 
-        MutableObjectIntMap geneSynonymRecs = selectAllFromColumnInList(connection, "synonym", "name", geneSet);
+        MutableObjectIntMap<?> geneSynonymRecs = selectAllFromColumnInList(connection, "synonym", "name", geneSet);
 
-        MutableObjectIntMap transcriptRecs = selectAllFromColumnInList(connection, "transcript", "primary_identifier", transcriptSet);
+        MutableObjectIntMap<?> transcriptRecs = selectAllFromColumnInList(connection, "transcript", "primary_identifier", transcriptSet);
 
         // set autocommit off again
         connection.setAutoCommit(false);
@@ -249,7 +243,7 @@ public class VariantInsertion {
             insertVariantTranscriptsTemp = connection.prepareStatement("insert into variant_transcript_temp (variant_ref_txt, transcript_ids, transcript_feature_ids) VALUES (?,?,?)");
             insertGenotypeTemp = connection.prepareStatement("insert into genotype_temp (variant_id, format, genotype_data) VALUES (?,?,?)");
             if (this.assembly == Assembly.MM39 && this.checkForCanon) {
-                insertReftxtmm10mm39Temp = connection.prepareStatement("insert into mm10_mm39_temp (ref_txt_mm39, ref_txt_mm10) VALUES (?,?)");
+                insertReftxtmm10mm39Temp = connection.prepareStatement("insert into mm10mm39temp (ref_txt_mm39, ref_txt_mm10) VALUES (?,?)");
             }
 
             for (Variant variant : batchOfVars) {
@@ -270,8 +264,8 @@ public class VariantInsertion {
                             transcriptId = annotation.get("Feature_ID").substring(0, idx);
                         else
                             transcriptId = annotation.get("Feature_ID");
-                        transcriptExistingConcatIds = transcriptExistingConcatIds.equals("") ? String.valueOf(transcriptRecs.get(transcriptId)) : transcriptExistingConcatIds.concat(",").concat(String.valueOf(transcriptRecs.get(transcriptId)));
-                        transcriptFeatureConcatIds = transcriptFeatureConcatIds.equals("") ? transcriptId : transcriptFeatureConcatIds.concat(",").concat(transcriptId);
+                        transcriptExistingConcatIds = transcriptExistingConcatIds.isEmpty() ? String.valueOf(transcriptRecs.get(transcriptId)) : transcriptExistingConcatIds.concat(",").concat(String.valueOf(transcriptRecs.get(transcriptId)));
+                        transcriptFeatureConcatIds = transcriptFeatureConcatIds.isEmpty() ? transcriptId : transcriptFeatureConcatIds.concat(",").concat(transcriptId);
                     }
                     // insert into temp table transcript variants
                     insertVariantTranscriptsTemp.setString(1, variant.getVariantRefTxt());
@@ -281,6 +275,7 @@ public class VariantInsertion {
 
                     // insert into temp mm10/mm39 table to later properly canonicalize the new mm39 variants to their original mm10 variant if they already exist
                     if (this.assembly == Assembly.MM39 && this.checkForCanon) {
+                        assert insertReftxtmm10mm39Temp != null;
                         insertReftxtmm10mm39Temp.setString(1, variant.getVariantRefTxt());
                         insertReftxtmm10mm39Temp.setString(2, variant.getOriginalRefTxt());
                         insertReftxtmm10mm39Temp.addBatch();
@@ -353,8 +348,10 @@ public class VariantInsertion {
             insertVariantTranscriptsTemp.executeBatch();
             insertVariants.executeBatch();
             insertGenotypeTemp.executeBatch();
-            if (this.assembly == Assembly.MM39 && this.checkForCanon)
+            if (this.assembly == Assembly.MM39 && this.checkForCanon) {
+                assert insertReftxtmm10mm39Temp != null;
                 insertReftxtmm10mm39Temp.executeBatch();
+            }
             connection.commit();
             return canonIdx;
         } finally {
@@ -374,7 +371,7 @@ public class VariantInsertion {
     private String concatenate(List<Map<String, String>> annotations, String annotationKey) {
         String concatenationResult = "";
         for (Map<String, String> annot : annotations) {
-            if (!concatenationResult.equals("")) {
+            if (!concatenationResult.isEmpty()) {
                 concatenationResult = concatenationResult.concat(",").concat(annot.get(annotationKey));
             } else {
                 concatenationResult = annot.get(annotationKey);
@@ -384,11 +381,11 @@ public class VariantInsertion {
     }
 
     /**
-     * @param connection
-     * @param geneSynonymRecs
-     * @param geneName
+     * @param connection        JDBC connection
+     * @param geneSynonymRecs   synonym of genes records
+     * @param geneName          gene  name
      * @return Returns -1 if no result was found
-     * @throws SQLException
+     * @throws SQLException Exception thrown
      */
     private int getGeneBySynonyms(Connection connection, MutableObjectIntMap geneSynonymRecs, final String geneName) throws SQLException {
         connection.setAutoCommit(true);
@@ -420,13 +417,12 @@ public class VariantInsertion {
         try {
             fr = new FileWriter(file);
             br = new BufferedWriter(fr);
-            br.write("transcript_id\tgene_name\tvariant_ref_txt\tis_most_pathogenic" + System.getProperty("line.separator"));
+            br.write("transcript_id\tgene_name\tvariant_ref_txt\tis_most_pathogenic" + System.lineSeparator());
             for (Map.Entry<String, String[]> entry : newTranscriptsMap.entrySet()) {
                 br.write(entry.getKey() + "\t" + entry.getValue()[0] + "\t"
-                        + entry.getValue()[1] + "\t" + entry.getValue()[2] + System.getProperty("line.separator"));
+                        + entry.getValue()[1] + "\t" + entry.getValue()[2] + System.lineSeparator());
             }
         } catch (IOException e) {
-            e.printStackTrace();
             System.err.println("Error writing new transcripts to file: " + e.getMessage());
         } finally {
             try {
@@ -436,15 +432,15 @@ public class VariantInsertion {
                     fr.close();
                 System.out.println("New transcripts written to file:" + file.getName());
             } catch (IOException e) {
-                e.printStackTrace();
+                System.err.println("Error closing the file: " + e.getMessage());
             }
         }
     }
 
     /**
-     *
-     * @param startId
-     * @param batchNumber
+     * Search and update all MVAR ids for the lifted MM39 variants inserted and update the CAID for these lifted variants
+     * @param startId       start id from where to perform the search and update
+     * @param batchNumber   batch size
      */
     public void searchAndInsertCanonicalFromMM39(int startId, int batchNumber) {
         batchSize = batchNumber;
@@ -535,9 +531,8 @@ public class VariantInsertion {
         List<String> mm10RefTxts = new LinkedList<>(), caids = new LinkedList<>();
 
         try {
-//            connection.setAutoCommit(true);
             // select all CAIDs
-            String selectRefTxtmm10 = "select ref_txt_mm10 from mm10_mm39_temp mmt where mmt.ref_txt_mm39 in (";
+            String selectRefTxtmm10 = "select ref_txt_mm10 from mm10mm39temp mmt where mmt.ref_txt_mm39 in (";
             String refTxtList = "";
             // first loop to create "bulk select query"
             int idx = 0;
@@ -579,12 +574,10 @@ public class VariantInsertion {
             } catch (SQLException exc) {
                 throw exc;
             }
-//            connection.setAutoCommit(false);
             // TODO replace the above two selects by an inner select? the problem is we need to ensure the order of the
             // results... that is why the sequencial two select is required here with a ORDER BY FIELD
 
             // run update in batch
-            System.out.println("start time : "+new Date());
             int it = 0;
             for (Map.Entry<Integer, String> entry : variantRefTxtMap.entrySet()) {
                 String mm39RefTxt = entry.getValue();
@@ -596,8 +589,6 @@ public class VariantInsertion {
             }
             updateCaidPstmt.executeBatch();
             connection.commit();
-            System.out.println("end time : "+new Date());
-
         } catch (SQLException exc) {
             throw exc;
         } finally {
