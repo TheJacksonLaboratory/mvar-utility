@@ -4,6 +4,7 @@ import org.jax.mvar.utility.converter.VCFConverter;
 import org.jax.mvar.utility.insert.VariantInsertion;
 import org.jax.mvar.utility.insert.VariantStrainInsertion;
 import org.jax.mvar.utility.insert.VariantTranscriptInsertion;
+import org.jax.mvar.utility.model.Assembly;
 import org.jax.mvar.utility.model.Variant;
 import org.jax.mvar.utility.parser.MGIChecker;
 
@@ -33,9 +34,12 @@ public class App {
             case "INSERT":
                 arguments.put("type", "INSERT");
                 break;
+            case "CANON":
+                arguments.put("type", "CANON");
+                break;
             default:
                 throw new IllegalStateException("Unexpected command type: " + args[0] + ". " +
-                        "Please use INSERT, REL, GENO, MGI or CONVERT as the first parameter.");
+                        "Please use INSERT, REL, GENO, MGI, CANON or CONVERT as the first parameter.");
         }
         // check and load parameters for given command
         arguments.put("batch_size", 10000);
@@ -46,6 +50,7 @@ public class App {
         arguments.put("data_path", "");
         arguments.put("imputed", (byte)0);
         arguments.put("header_path", "");
+        arguments.put("reference", "mm10");
 
         for (int i=0; i < args.length; i++) {
             if (args[i].startsWith("-")) {
@@ -76,8 +81,11 @@ public class App {
                     case "-header_path":
                         arguments.put("header_path", args[i+1]);
                         break;
+                    case "-reference":
+                        arguments.put("reference", args[i+1]);
+                        break;
                     default:
-                        throw new IllegalStateException("Unexpected parameter: " + args[0]);
+                        throw new IllegalStateException("Unexpected parameter: " + args[i]);
                 }
             }
         }
@@ -92,12 +100,14 @@ public class App {
             int batchSize = (int) arguments.get("batch_size");
             int startId = (int) arguments.get("start_id");
             int stopId = (int) arguments.get("stop_id");
+
             String path = (String) arguments.get("data_path");
             String headerFilePath = (String) arguments.get("header_path");
+            Assembly assembly = getAssembly((String) arguments.get("reference"));
             if (type.equals("MGI")) {         // Check MGI vcf data against the MVAR database for duplicates
                 // check MGI variants in DB
                 MGIChecker checker = new MGIChecker();
-                checker.loadVCF(new File(path));
+                checker.loadVCF(new File(path), assembly);
             } else if (type.equals("CONVERT")) {   // Convert CSV to VCF format
                 try {
                     // Read variant csv file
@@ -119,11 +129,11 @@ public class App {
                     Arrays.sort(files);
                     for (File file : files) {
                         if (file.isFile() && (file.getName().endsWith(".gz") || (file.getName().endsWith(".vcf"))))
-                            insertService.loadVCF(file, headerFile, batchSize, false);
+                            insertService.loadVCF(file, headerFile, batchSize, false, assembly);
                     }
 
                 } else if (f.isFile() && (f.getName().endsWith(".gz") || (f.getName().endsWith(".vcf")))) {
-                    insertService.loadVCF(f, f, batchSize, checkForCanon);
+                    insertService.loadVCF(f, f, batchSize, checkForCanon, assembly);
                 } else {
                     throw new Exception("Could not find file or directory : " + f.getPath());
                 }
@@ -134,11 +144,22 @@ public class App {
                 String strainFilePath = (String) arguments.get("strain_path");
                 byte imputed = (byte) arguments.get("imputed");
                 VariantStrainInsertion.insertVariantStrainRelationships(batchSize, startId, stopId, strainFilePath, imputed);
+            } else if (type.equals("CANON")) {
+                insertService.searchAndInsertCanonicalFromMM39(startId, batchSize);
             }
         } catch (Exception exc) {
             System.out.println(exc.getMessage());
         }
+    }
 
+    private static Assembly getAssembly(String reference) {
+        if (!Objects.equals(reference, "mm39") && !Objects.equals(reference, "mm10")) {
+            throw new IllegalStateException("reference parameter should be mm10 or mm39");
+        }
+        if (reference.equals("mm39"))
+            return Assembly.MM39;
+        else
+            return Assembly.MM10;
     }
 
 }

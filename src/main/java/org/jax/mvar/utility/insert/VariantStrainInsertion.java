@@ -39,28 +39,8 @@ public class VariantStrainInsertion {
             // INSERT imputed mvar strain relationship
 //            InsertUtils.insertMvarStrainImputed(connection, strainMaps.get(0), strainMaps.get(1), imputed);
 
-            if (stopId == -1) {
-                // count all genotypes data saved
-                PreparedStatement countStmt = null;
-                ResultSet resultCount = null;
-                try {
-                    countStmt = connection.prepareStatement("SELECT COUNT(id) from genotype_temp;");
-                    resultCount = countStmt.executeQuery();
-                    if (resultCount.next()) {
-                        numberOfRecords = resultCount.getInt(1);
-                        stopId = numberOfRecords;
-                    } else {
-                        System.out.println("error: could not get the record counts");
-                    }
-                } finally {
-                    if (resultCount != null)
-                        resultCount.close();
-                    if (countStmt != null)
-                        countStmt.close();
-                }
-            } else {
-                numberOfRecords = stopId;
-            }
+            // count from table
+            numberOfRecords = InsertUtils.countFromTable(connection, "genotype_temp", null, stopId);
             System.out.println("NumberOfRows = " + (numberOfRecords - startId + 1) + " to be parsed.");
             System.out.println("Batch size is " + batchSize);
             int selectIdx = startId;

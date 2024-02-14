@@ -202,4 +202,46 @@ public class InsertUtils {
         }
         return mvarStrainId;
     }
+
+    /**
+     * Given a table name and a condition (can be null), return the count from a Select count(*)
+     * @param connection
+     * @param tableName
+     * @param mySqlCondition
+     * @param stopId
+     * @return
+     */
+    public static int countFromTable(Connection connection, String tableName, String mySqlCondition, int stopId) throws SQLException {
+        int numberOfRecords = 0;
+        if (stopId == -1) {
+            // count all
+            PreparedStatement countStmt = null;
+            ResultSet resultCount = null;
+            String query;
+            try {
+                if (mySqlCondition != null)
+                    query = "SELECT COUNT(*) from " + tableName + " WHERE "+ mySqlCondition + ";";
+                else
+                    query = "SELECT COUNT(*) from " + tableName + ";";
+                countStmt = connection.prepareStatement(query);
+                resultCount = countStmt.executeQuery();
+                if (resultCount.next()) {
+                    numberOfRecords = resultCount.getInt(1);
+                    stopId = numberOfRecords;
+                } else {
+                    System.out.println("error: could not get the record counts");
+                }
+            } finally {
+                if (resultCount != null)
+                    resultCount.close();
+                if (countStmt != null)
+                    countStmt.close();
+            }
+        } else {
+            numberOfRecords = stopId;
+        }
+        return numberOfRecords;
+    }
+
+
 }

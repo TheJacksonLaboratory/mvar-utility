@@ -1,10 +1,12 @@
 package org.jax.mvar.utility.parser;
 
+import org.jax.mvar.utility.model.Assembly;
 import org.jax.mvar.utility.model.Variant;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +29,7 @@ public class VcfParserTest {
 //        14	66046191	.	C	T	317	PASS	AC=4;AD=2063,69;AN=104;ANN=T|missense_variant|MODERATE|Adam2|11495|transcript|ENSMUST00000022618.5|Coding|13/21|c.1261G>A|p.(D421N)|1272/50405|1261/2208|421/736||,T|non_coding_transcript_exon_variant|LOW|Adam2|11495|transcript|ENSMUST00000225667.1|Noncoding|13/13|n.1236G>A||1236/31709||||;CSQ=T|missense_variant|MODERATE|Adam2|ENSMUSG00000022039|Transcript|ENSMUST00000022618|protein_coding|13/21||ENSMUST00000022618.5:c.1261G>A|ENSMUSP00000022618.5:p.Asp421Asn|1272|1261|421|D/N|Gac/Aac|rs1135047373||-1||SNV|MGI||YES||1|P1|CCDS36959.1|ENSMUSP00000022618|Q60718||UPI0000021DC5||1|tolerated(0.47)|PROSITE_profiles:PS50214&PANTHER:PTHR11905&PANTHER:PTHR11905:SF108&Gene3D:4.10.70.10&Pfam:PF00200&SMART:SM00050&Superfamily:SSF57552|||14:g.66046191C>T||||||||||||||||||||||||||||,T|downstream_gene_variant|MODIFIER|Gm10233|ENSMUSG00000068165|Transcript|ENSMUST00000089275|processed_pseudogene||||||||||rs1135047373|484|1||SNV|MGI||YES|||||||||||||||14:g.66046191C>T||||||||||||||||||||||||||||,T|non_coding_transcript_exon_variant|MODIFIER|Adam2|ENSMUSG00000022039|Transcript|ENSMUST00000225667|retained_intron|13/13||ENSMUST00000225667.1:n.1236G>A||1236|||||rs1135047373||-1||SNV|MGI||||||||||||1|||||14:g.66046191C>T||||||||||||||||||||||||||||;DP=2139;DP4=1211,852,52,24;MQ=59	GT:AD:ADF:ADR:DP:FI:GQ:PL	0/0:37,0:23,0:14,0:37:1:99:0,111,255	0/0:48,0:31,0:17,0:50:1:99:0,144,255	0/0:17,0:14,0:3,0:17:1:61:0,51,183	0/0:50,0:33,0:17,0:50:1:99:0,151,255	0/0:39,0:20,0:19,0:39:1:99:0,117,255	0/0:45,0:23,0:22,0:46:1:99:0,135,255	0/0:33,0:20,0:13,0:33:1:99:0,99,255	0/0:47,0:27,0:20,0:48:1:99:0,141,255	0/0:105,0:54,0:51,0:105:1:99:0,255,255	0/0:59,0:35,0:24,0:59:1:99:0,178,255	0/0:13,0:7,0:6,0:13:1:49:0,39,255	0/0:46,0:24,0:22,0:46:1:99:0,138,255	0/0:31,0:16,0:15,0:31:1:99:0,93,255	0/0:50,0:23,0:27,0:50:1:99:0,151,255	0/0:46,0:25,0:21,0:47:1:99:0,138,255	0/0:30,0:12,0:18,0:30:1:99:0,90,255	0/0:44,0:19,0:25,0:44:1:99:0,132,255	0/0:40,0:19,0:21,0:40:1:99:0,120,255	0/0:28,0:28,0:0,0:28:1:94:0,84,229	0/0:52,0:30,0:22,0:52:1:99:0,157,255	0/0:43,0:22,0:21,0:43:1:99:0,129,255	0/0:34,0:30,0:4,0:34:1:99:0,102,255	0/0:37,0:15,0:22,0:37:1:99:0,111,255	0/0:46,0:23,0:23,0:46:1:99:0,138,255	0/0:65,0:42,0:23,0:66:1:99:0,196,255	0/0:40,0:23,0:17,0:40:1:99:0,120,255	1/1:0,9:0,9:0,0:9:0:10:158,27,0	0/0:47,0:29,0:18,0:47:1:99:0,141,255	0/0:10,0:5,0:5,0:10:1:40:0,30,245	0/0:38,0:22,0:16,0:38:1:99:0,114,255	0/0:49,0:33,0:16,0:49:1:99:0,148,255	0/0:33,0:24,0:9,0:33:1:99:0,99,255	0/0:19,0:11,0:8,0:19:1:67:0,57,255	0/0:45,0:26,0:19,0:46:1:99:0,135,255	0/0:46,0:25,0:21,0:46:1:99:0,138,255	0/0:34,1:12,0:22,1:35:1:99:0,90,255	0/0:63,0:41,0:22,0:63:1:99:0,190,255	0/0:63,0:45,0:18,0:63:1:99:0,190,255	0/0:21,0:11,0:10,0:21:1:73:0,63,255	0/0:21,0:19,0:2,0:21:1:73:0,63,255	0/0:40,0:26,0:14,0:40:1:99:0,120,255	0/0:44,0:22,0:22,0:44:1:99:0,132,255	0/0:75,0:45,0:30,0:75:1:99:0,226,255	0/0:37,0:20,0:17,0:37:1:99:0,111,255	0/0:60,0:35,0:25,0:60:1:99:0,181,255	0/0:41,0:23,0:18,0:41:1:99:0,123,255	0/0:28,0:13,0:15,0:28:1:94:0,84,255	0/0:32,0:31,0:1,0:32:1:99:0,96,246	1/1:0,59:0,38:0,21:59:1:99:255,178,0	0/0:41,0:26,0:15,0:41:1:99:0,123,255	0/0:37,0:23,0:14,0:37:1:99:0,111,255	0/0:14,0:6,0:8,0:14:1:52:0,42,255
 
         Map<String, Variant> variations = VcfParser.parseVcf(new File("src/test/resources/variant_test.vcf"),
-                new File("src/test/resources/variant_test.vcf"), false);
+                new File("src/test/resources/variant_test.vcf"), false, Assembly.MM10);
         // test length
         Assert.assertEquals(5, variations.size());
 
@@ -44,6 +46,14 @@ public class VcfParserTest {
             Assert.assertEquals(AMINO_ACID_CHANGES.get(idx), variant.getAminoAcidChange());
             idx++;
         }
+    }
+
+    @Test
+    public void testGetAlleles() {
+        List<String> alleles = new ArrayList();
+        alleles.add("A");
+        alleles.add("G");
+        System.out.println(alleles.toString());
     }
 
 }

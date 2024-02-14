@@ -111,11 +111,13 @@ abstract public class InfoParser {
 
     /**
      * Returns the Ann and CSQ annotation as a Map of two values
-     * where the first value is the ANN and the second the CSQ
+     * where the first value is the ANN and the second the CSQ. If isLifted is true, then OriginalAlleles
+     * and OriginalStart are also stores and returned.
      * @param annotations
+     * @param isLifted
      * @return
      */
-    public static Map<String, String> getANNandCSQ(String[] annotations) {
+    public static Map<String, String> getANNandCSQ(String[] annotations, boolean isLifted) {
         Map<String, String> annAndCSQ = new HashMap<>();
         for (int i = 0; i < annotations.length; i++) {
             if (annotations[i].startsWith("ANN")) {
@@ -124,8 +126,20 @@ abstract public class InfoParser {
             if (annotations[i].startsWith("CSQ")) {
                 annAndCSQ.put("CSQ", annotations[i]);
             }
-            if (annAndCSQ.size() == 2) {
-                return annAndCSQ;
+            if (isLifted) {
+                if (annotations[i].startsWith("OriginalAlleles")) {
+                    annAndCSQ.put("OriginalAlleles", annotations[i].split("=")[1]);
+                }
+                if (annotations[i].startsWith("OriginalStart")) {
+                    annAndCSQ.put("OriginalStart", annotations[i].split("=")[1]);
+                }
+                if (annAndCSQ.size() == 4) {
+                    return annAndCSQ;
+                }
+            } else {
+                if (annAndCSQ.size() == 2) {
+                    return annAndCSQ;
+                }
             }
         }
         return annAndCSQ;

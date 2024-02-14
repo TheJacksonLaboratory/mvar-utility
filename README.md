@@ -28,6 +28,8 @@ This application is used to :
    
     The "-batch_size" is optional; the default value is 1000. "-check_canon" is also optional and if present as a parameter, then the insertion will include a canonical variant check for uniqueness, so that no duplicates are added to the DB.
 
+    The "-reference" is optional (set to "mm10" by default) and can be set to either "mm10" or "mm39".
+
     To insert multiple files, a folder where the files are located can be passed as a parameter:
     ```
         java -jar mvar-utility-all.jar INSERT -data_path /path/to/data_folder -header_path /path/to/header_file.txt -batch_size 5000 -check_canon

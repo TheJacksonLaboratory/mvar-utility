@@ -6,6 +6,7 @@ import org.eclipse.collections.api.map.primitive.MutableObjectIntMap;
 import org.eclipse.collections.impl.list.mutable.FastList;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectIntHashMap;
 import org.jax.mvar.utility.Config;
+import org.jax.mvar.utility.model.Assembly;
 import org.jax.mvar.utility.model.Variant;
 import org.jax.mvar.utility.parser.AnnotationParser;
 import org.jax.mvar.utility.parser.InfoParser;
@@ -23,8 +24,9 @@ public class VariantInsertion {
     private final static List<String> VARIANT_TYPES = Arrays.asList("SNP", "DEL", "INS");
 
     private static int batchSize = 1000;
-    private static final String ASSEMBLY = "grcm38";
     private InfoParser infoParser;
+    private Assembly assembly;
+    private boolean checkForCanon;
 
     /**
      * Loads a VCF file in the database
@@ -34,16 +36,19 @@ public class VariantInsertion {
      *                      the vcfFile. If not (multiple file, and they don't have a header, then a separate header file is needed.
      * @param batchNumber   a batch number of 1000 is advised if enough memory (7G) is allocated to the JVM
      *                      Ultimately, the batch number depends on the File size and the JVM max and min memory
-     * @param checkForCanon
+     * @param checkForCanon if true we check for canonical
+     * @param assembly      Can be one of the assembly enum in Assembly
      */
-    public void loadVCF(File vcfFile, File headerFile, int batchNumber, boolean checkForCanon) {
+    public void loadVCF(File vcfFile, File headerFile, int batchNumber, boolean checkForCanon, Assembly assembly) {
         batchSize = batchNumber;
+        this.assembly = assembly;
+        this.checkForCanon = checkForCanon;
         System.out.println("Parsing VCF file and inserting parsed variants into DB, " + new Date());
         System.out.println("Batch size = " + batchSize);
         try {
             infoParser = new AnnotationParser(headerFile);
             // parse variants into a Map
-            Map<String, Variant> variations = VcfParser.parseVcf(vcfFile, headerFile, checkForCanon);
+            Map<String, Variant> variations = VcfParser.parseVcf(vcfFile, headerFile, checkForCanon, assembly);
             // Persist data
             persistData(variations);
         } catch (Exception e) {
@@ -72,10 +77,11 @@ public class VariantInsertion {
         try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
             final StopWatch stopWatch = new StopWatch();
             stopWatch.start();
+            System.out.println(new Date() + ", Starting variant insertion");
 
             // insert variants parsed
             int newVariantsInserted = insertVariantsBatch(connection, variations);
-            System.out.println(newVariantsInserted + " new variants inserted in " + stopWatch + ", " + new Date());
+            System.out.println(new Date() + "," + newVariantsInserted + " new variants inserted in " + stopWatch);
             stopWatch.reset();
         }
     }
@@ -196,12 +202,14 @@ public class VariantInsertion {
         }
 
         // update canonical id
-        String UPDATE_CANONICAL_ID = "update variant_canon_identifier set caid = concat(\'MCA_\', id) where caid is NULL";
-        try (PreparedStatement updateCanonicalStmt = connection.prepareStatement(UPDATE_CANONICAL_ID)) {
-            updateCanonicalStmt.execute();
-            connection.commit();
+        // update with canonical check for mm39 TODO
+        if (!checkForCanon && assembly != Assembly.MM39) {
+            String UPDATE_CANONICAL_ID = "update variant_canon_identifier set caid = concat(\'MCA_\', id) where caid is NULL";
+            try (PreparedStatement updateCanonicalStmt = connection.prepareStatement(UPDATE_CANONICAL_ID)) {
+                updateCanonicalStmt.execute();
+                connection.commit();
+            }
         }
-
         innoDBSetOptions(connection, true);
 
         // calculate the number of new variants inserted
@@ -231,8 +239,8 @@ public class VariantInsertion {
         // set autocommit off again
         connection.setAutoCommit(false);
 
-        List<Map<String, String>> annotationParsed;
-        PreparedStatement insertCanonVariants = null, insertVariants = null, insertVariantTranscriptsTemp = null, insertGenotypeTemp = null;
+        List<Map<String, String>> annotationParsed, originalRefTxtParsed;
+        PreparedStatement insertCanonVariants = null, insertVariants = null, insertVariantTranscriptsTemp = null, insertGenotypeTemp = null, insertReftxtmm10mm39Temp = null;
 
         try {
             // directly use java PreparedStatement to get ResultSet with keys
@@ -240,6 +248,9 @@ public class VariantInsertion {
             insertVariants = connection.prepareStatement("insert into variant (accession, chr, position, alt, ref, type, functional_class_code, assembly, parent_ref_ind, variant_ref_txt, variant_hgvs_notation, dna_hgvs_notation, protein_hgvs_notation, impact, canon_var_identifier_id, gene_id, protein_position, amino_acid_change) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             insertVariantTranscriptsTemp = connection.prepareStatement("insert into variant_transcript_temp (variant_ref_txt, transcript_ids, transcript_feature_ids) VALUES (?,?,?)");
             insertGenotypeTemp = connection.prepareStatement("insert into genotype_temp (variant_id, format, genotype_data) VALUES (?,?,?)");
+            if (this.assembly == Assembly.MM39 && this.checkForCanon) {
+                insertReftxtmm10mm39Temp = connection.prepareStatement("insert into mm10_mm39_temp (ref_txt_mm39, ref_txt_mm10) VALUES (?,?)");
+            }
 
             for (Variant variant : batchOfVars) {
                 // check if the variant exists
@@ -268,6 +279,13 @@ public class VariantInsertion {
                     insertVariantTranscriptsTemp.setString(3, transcriptFeatureConcatIds);
                     insertVariantTranscriptsTemp.addBatch();
 
+                    // insert into temp mm10/mm39 table to later properly canonicalize the new mm39 variants to their original mm10 variant if they already exist
+                    if (this.assembly == Assembly.MM39 && this.checkForCanon) {
+                        insertReftxtmm10mm39Temp.setString(1, variant.getVariantRefTxt());
+                        insertReftxtmm10mm39Temp.setString(2, variant.getOriginalRefTxt());
+                        insertReftxtmm10mm39Temp.addBatch();
+                    }
+
                     // Do we want that? to link only the most pathogenic gene info to this variant? or do we have a one to many relationship?
                     String geneName = annotationParsed.get(0).get("Gene_Name");
                     long geneId = geneSymbolRecs.get(geneName);
@@ -289,7 +307,7 @@ public class VariantInsertion {
                         insertVariants.setNull(7, Types.VARCHAR);
                     else
                         insertVariants.setString(7, concatenations);
-                    insertVariants.setString(8, ASSEMBLY);
+                    insertVariants.setString(8, this.assembly.label);
                     insertVariants.setBoolean(9, true);
                     // for now we put the variantRefTxt in ParentVarRef too as we are inserting variants with assembly 38 already (no liftover)
                     insertVariants.setString(10, variant.getVariantRefTxt());
@@ -335,6 +353,8 @@ public class VariantInsertion {
             insertVariantTranscriptsTemp.executeBatch();
             insertVariants.executeBatch();
             insertGenotypeTemp.executeBatch();
+            if (this.assembly == Assembly.MM39 && this.checkForCanon)
+                insertReftxtmm10mm39Temp.executeBatch();
             connection.commit();
             return canonIdx;
         } finally {
@@ -346,6 +366,8 @@ public class VariantInsertion {
                 insertVariantTranscriptsTemp.close();
             if (insertGenotypeTemp != null)
                 insertGenotypeTemp.close();
+            if (insertReftxtmm10mm39Temp != null && this.assembly == Assembly.MM39 && this.checkForCanon)
+                insertReftxtmm10mm39Temp.close();
         }
     }
 
@@ -418,4 +440,172 @@ public class VariantInsertion {
             }
         }
     }
+
+    /**
+     *
+     * @param startId
+     * @param batchNumber
+     */
+    public void searchAndInsertCanonicalFromMM39(int startId, int batchNumber) {
+        batchSize = batchNumber;
+        Config config = new Config();
+        int numberOfRecords = 0;
+        int stopId = -1;
+
+        final StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+        System.out.println(new Date() + ", Starting searching and updating Canonical IDs for mm39");
+
+        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
+            // count number of records
+            numberOfRecords = InsertUtils.countFromTable(connection, "variant_canon_identifier", null, stopId);
+
+            System.out.println("NumberOfRows = " + (numberOfRecords - startId + 1) + " to be parsed.");
+            System.out.println("Batch size is " + batchSize);
+            VariantInsertion.innoDBSetOptions(connection, false);
+
+            int selectIdx = startId;
+            long start, elapsedTimeMillis;
+            Map<Integer, String> variantRefTxtMap;
+
+            // iterate over records
+            for (int i = startId - 1; i < numberOfRecords; i++) {
+                if (i > startId && i % batchSize == 0) {
+                    start = System.currentTimeMillis();
+                    variantRefTxtMap = selectVariantRefTxt(connection, selectIdx, selectIdx + batchSize - 1);
+                    updateVariantRefTxtFormm39InBatch(connection, variantRefTxtMap);
+                    variantRefTxtMap.clear();
+                    elapsedTimeMillis = System.currentTimeMillis() - start;
+                    System.out.println("Progress: " + i + " of " + numberOfRecords + ", left: " + (numberOfRecords - i) + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items updated: " + selectIdx + " to " + (selectIdx + batchSize - 1) + ", " + new Date());
+                    selectIdx = selectIdx + batchSize;
+                }
+            }
+            // last batch
+            start = System.currentTimeMillis();
+            variantRefTxtMap = selectVariantRefTxt(connection, selectIdx, numberOfRecords);
+            if (!variantRefTxtMap.isEmpty()) {
+                updateVariantRefTxtFormm39InBatch(connection, variantRefTxtMap);
+                variantRefTxtMap.clear();
+                elapsedTimeMillis = System.currentTimeMillis() - start;
+                System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items updated: " + selectIdx + " to " + numberOfRecords + ", " + new Date());
+            }
+            VariantInsertion.innoDBSetOptions(connection, true);
+
+            System.out.println("mm39 canonical ids updated in " + stopWatch);
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        System.out.println(new Date() + ", end timer: " + stopWatch);
+        stopWatch.reset();
+    }
+
+    private static Map<Integer, String> selectVariantRefTxt(Connection connection, int start, int stop) throws SQLException {
+        PreparedStatement selectStmt = null;
+        ResultSet result = null;
+        Map<Integer, String> variantRefTxtMap = new LinkedHashMap<>();
+        connection.setAutoCommit(true);
+
+        try {
+            selectStmt = connection.prepareStatement("SELECT id, variant_ref_txt FROM variant_canon_identifier WHERE id BETWEEN ? AND ?");
+            selectStmt.setInt(1, start);
+            selectStmt.setInt(2, stop);
+            result = selectStmt.executeQuery();
+            while (result.next()) {
+                int variantId = result.getInt("id");
+                String variantRefTxt = result.getString("variant_ref_txt");
+                variantRefTxtMap.put(variantId, variantRefTxt);
+            }
+        } catch (SQLException exc) {
+            throw exc;
+        } finally {
+            if (result != null)
+                result.close();
+            if (selectStmt != null)
+                selectStmt.close();
+            connection.setAutoCommit(false);
+
+        }
+        return variantRefTxtMap;
+    }
+
+    private static void updateVariantRefTxtFormm39InBatch(Connection connection, Map<Integer, String> variantRefTxtMap) throws SQLException {
+        PreparedStatement updateCaidPstmt = connection.prepareStatement("UPDATE variant_canon_identifier SET caid=? WHERE variant_ref_txt=?");
+        List<String> mm10RefTxts = new LinkedList<>(), caids = new LinkedList<>();
+
+        try {
+//            connection.setAutoCommit(true);
+            // select all CAIDs
+            String selectRefTxtmm10 = "select ref_txt_mm10 from mm10_mm39_temp mmt where mmt.ref_txt_mm39 in (";
+            String refTxtList = "";
+            // first loop to create "bulk select query"
+            int idx = 0;
+            for (Map.Entry<Integer, String> entry : variantRefTxtMap.entrySet()) {
+                if (idx < variantRefTxtMap.size() - 1) {
+                    refTxtList = refTxtList + "\"" + entry.getValue() + "\",";
+                } else {
+                    // finish building the list
+                    refTxtList = refTxtList + "\"" + entry.getValue() + "\"";
+                }
+                idx++;
+            }
+            // this is required to ensure order
+            selectRefTxtmm10 = selectRefTxtmm10 + refTxtList + ") ORDER BY FIELD(mmt.ref_txt_mm39," + refTxtList + ");" ;
+            // run select statement
+            try (PreparedStatement selectRefTxtmm10Stmt = connection.prepareStatement(selectRefTxtmm10); ResultSet mm10RefTxtResult = selectRefTxtmm10Stmt.executeQuery()) {
+                while (mm10RefTxtResult.next()) {
+                    mm10RefTxts.add(mm10RefTxtResult.getString("ref_txt_mm10"));
+                }
+            } catch (SQLException exc) {
+                throw exc;
+            }
+            String selectCaids = "select caid from variant_canon_identifier vci where vci.variant_ref_txt in (";
+            String  mm10RefTxtList = "";
+            idx = 0;
+            for (String mm10RefTxt:mm10RefTxts) {
+                if (idx < mm10RefTxts.size() -1) {
+                    mm10RefTxtList = mm10RefTxtList + "\"" + mm10RefTxt + "\",";
+                } else {
+                    mm10RefTxtList = mm10RefTxtList + "\"" + mm10RefTxt + "\"";
+                }
+                idx++;
+            }
+            selectCaids = selectCaids + mm10RefTxtList + ") ORDER BY FIELD(vci.variant_ref_txt," + mm10RefTxtList + ");";
+            try (PreparedStatement selectCaidStmt = connection.prepareStatement(selectCaids); ResultSet caidResult = selectCaidStmt.executeQuery()) {
+                while (caidResult.next()) {
+                    caids.add(caidResult.getString("caid"));
+                }
+            } catch (SQLException exc) {
+                throw exc;
+            }
+//            connection.setAutoCommit(false);
+            // TODO replace the above two selects by an inner select? the problem is we need to ensure the order of the
+            // results... that is why the sequencial two select is required here with a ORDER BY FIELD
+
+            // run update in batch
+            System.out.println("start time : "+new Date());
+            int it = 0;
+            for (Map.Entry<Integer, String> entry : variantRefTxtMap.entrySet()) {
+                String mm39RefTxt = entry.getValue();
+                // update
+                updateCaidPstmt.setString(1, caids.get(it));
+                updateCaidPstmt.setString(2, mm39RefTxt);
+                updateCaidPstmt.addBatch();
+                it++;
+            }
+            updateCaidPstmt.executeBatch();
+            connection.commit();
+            System.out.println("end time : "+new Date());
+
+        } catch (SQLException exc) {
+            throw exc;
+        } finally {
+            if (updateCaidPstmt != null)
+                updateCaidPstmt.close();
+            mm10RefTxts.clear();
+            caids.clear();
+        }
+    }
+
 }
