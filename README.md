@@ -73,7 +73,13 @@ This application is used to :
     ```
 
     where -batch_size is optional (1000000 by default), -start_id is optional (1 by default) and -imputed is optional (0 by default, where 0=sanger, 1=snpgrid, 2=mgi).
-     
+
+   2.3 Update MVAR id for mm10 lifted to mm39 variants also present in the new mm39 release (link/canonicalize with mm10 MVAR id)
+
+   ```
+       java -jar mvar-utility-all.jar CANON  -batch_size 1000 -start_id 1
+   ```
+
 3. Run MGI comparison
 
     In order to compare a particular VCF file (checking the number of existing variation in the DB) the following command can be run:
