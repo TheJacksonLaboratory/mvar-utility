@@ -15,8 +15,8 @@ public class InsertUtils {
 
     /**
      * Insert into mvar_strain table new strains
-     * @param connection
-     * @param strainsMap
+     * @param connection JDBC connection
+     * @param strainsMap map of strains
      * @return a linked list of two Maps, the first is the existing strains,
      *  and the second is the missing strains
      * @throws SQLException
@@ -64,7 +64,7 @@ public class InsertUtils {
             }
             System.out.println(count + " strains are already in the mvar_strain table.");
         } catch (SQLException exc) {
-            exc.printStackTrace();
+            System.err.println(exc.getMessage());
         } finally {
             if (resultFromMvarStrain != null)
                 resultFromMvarStrain.close();
@@ -72,7 +72,7 @@ public class InsertUtils {
                 selectFromMvarStrain.close();
         }
         resultStrainMaps.add(existingStrains);
-        if (missingStrains.size() != 0) {
+        if (!missingStrains.isEmpty()) {
             // insert missing strains into mvar strain table
             PreparedStatement insertStrainsStmt = connection.prepareStatement("INSERT INTO mvar_strain (name, strain_id)  VALUES (?, ?)");
 
@@ -85,12 +85,10 @@ public class InsertUtils {
                     insertStrainsStmt.setString(1, name);
                     insertStrainsStmt.setInt(2, id);
                     insertStrainsStmt.addBatch();
-                    strainLog = strainLog.equals("") ? name : strainLog + ", " + name;
+                    strainLog = strainLog.isEmpty() ? name : strainLog + ", " + name;
                 }
                 insertStrainsStmt.executeBatch();
                 System.out.println("Strains " + strainLog + " added to mvar_strain table.");
-            } catch (SQLException exc) {
-                throw exc;
             } finally {
                 if (insertStrainsStmt != null)
                     insertStrainsStmt.close();
@@ -102,10 +100,10 @@ public class InsertUtils {
 
     /**
      * Insert mvar Strain-imputed relationships.
-     * @param connection
-     * @param missingStrains
-     * @param existingStrains
-     * @param imputed
+     * @param connection JDBC connection
+     * @param missingStrains map of missing strains
+     * @param existingStrains map of existing strains
+     * @param imputed imputed
      * @throws SQLException
      */
     public static void insertMvarStrainImputed(Connection connection, Map<Integer, String> existingStrains, Map<Integer, String> missingStrains, byte imputed) throws SQLException {
@@ -205,11 +203,11 @@ public class InsertUtils {
 
     /**
      * Given a table name and a condition (can be null), return the count from a Select count(*)
-     * @param connection
-     * @param tableName
-     * @param mySqlCondition
-     * @param stopId
-     * @return
+     * @param connection JDBC connection
+     * @param tableName table name
+     * @param mySqlCondition Query condition after "WHERE"
+     * @param stopId end of record id
+     * @return number of rows in table
      */
     public static int countFromTable(Connection connection, String tableName, String mySqlCondition, int stopId) throws SQLException {
         int numberOfRecords = 0;
@@ -227,7 +225,6 @@ public class InsertUtils {
                 resultCount = countStmt.executeQuery();
                 if (resultCount.next()) {
                     numberOfRecords = resultCount.getInt(1);
-                    stopId = numberOfRecords;
                 } else {
                     System.out.println("error: could not get the record counts");
                 }

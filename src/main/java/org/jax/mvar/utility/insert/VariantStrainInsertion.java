@@ -14,7 +14,7 @@ public class VariantStrainInsertion {
     /**
      * Insert variant/transcripts relationships given the variant_transcript_temp table
      *
-     * @param batchSize
+     * @param batchSize batch number
      * @param startId genotype_temp id (variant id) at which to start the relationship insertion :
      *                in case a process needs to be re-run from a certain variant_id (instead of starting from the beginning all over again.
      *                By default 1.
@@ -61,7 +61,7 @@ public class VariantStrainInsertion {
             // last batch
             start = System.currentTimeMillis();
             variantIdGenotypeMap = selectGenotypeFromTemp(connection, selectIdx, numberOfRecords);
-            if (variantIdGenotypeMap.size() > 0) {
+            if (!variantIdGenotypeMap.isEmpty()) {
                 insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainsMap, strainMaps.get(0), imputed, startId);
                 variantIdGenotypeMap.clear();
                 elapsedTimeMillis = System.currentTimeMillis() - start;
@@ -70,7 +70,7 @@ public class VariantStrainInsertion {
 
             System.out.println("Variant/Strain relationships and genotype data inserted in " + stopWatch);
         } catch (Exception exc) {
-            exc.printStackTrace();
+            System.err.println(exc.getMessage());
         }
     }
 
@@ -80,20 +80,17 @@ public class VariantStrainInsertion {
         Map<Integer, String[]> variantIdGenotypeMap = new LinkedHashMap<>();
 
         try {
-            selectStmt = connection.prepareStatement("SELECT id, variant_id, format, genotype_data FROM genotype_temp WHERE id BETWEEN ? AND ?");
+            selectStmt = connection.prepareStatement("SELECT variant_id, genotype_data FROM genotype_temp WHERE id BETWEEN ? AND ?");
             selectStmt.setInt(1, start);
             selectStmt.setInt(2, stop);
             result = selectStmt.executeQuery();
             while (result.next()) {
                 // ... get column values from this record
                 int variantId = result.getInt("variant_id");
-//                String format = result.getString("format");
                 String[] genotypes = result.getString("genotype_data").split("\t");
 //                variantIdGenotypeMap.put(variantId, new Genotype(format, genotypes));
                 variantIdGenotypeMap.put(variantId, genotypes);
             }
-        } catch (SQLException exc) {
-            throw exc;
         } finally {
             if (result != null)
                 result.close();
@@ -142,8 +139,6 @@ public class VariantStrainInsertion {
             }
             insertVariantStrain.executeBatch();
             connection.commit();
-        } catch (SQLException exc) {
-            throw exc;
         } finally {
             if (insertVariantStrain != null)
                 insertVariantStrain.close();
