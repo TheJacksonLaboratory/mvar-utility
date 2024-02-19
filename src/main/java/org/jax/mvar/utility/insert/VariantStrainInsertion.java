@@ -31,46 +31,47 @@ public class VariantStrainInsertion {
         Config config = new Config();
         int numberOfRecords = 0;
 
-        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
-
-            Map<Integer, String> strainsMap = ParserUtils.getStrainsFromFile(connection, new File(strainFilePath));
-            // INSERT in MVAR Strain table
-            List<Map> strainMaps = InsertUtils.insertIntoMvarStrain(connection, strainsMap);
-            // INSERT imputed mvar strain relationship
+        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())){
+            if (connection != null) {
+                Map<Integer, String> strainsMap = ParserUtils.getStrainsFromFile(connection, new File(strainFilePath));
+                // INSERT in MVAR Strain table
+                List<Map> strainMaps = InsertUtils.insertIntoMvarStrain(connection, strainsMap);
+                // INSERT imputed mvar strain relationship
 //            InsertUtils.insertMvarStrainImputed(connection, strainMaps.get(0), strainMaps.get(1), imputed);
 
-            // count from table
-            numberOfRecords = InsertUtils.countFromTable(connection, "genotype_temp", null, stopId);
-            System.out.println("NumberOfRows = " + (numberOfRecords - startId + 1) + " to be parsed.");
-            System.out.println("Batch size is " + batchSize);
-            int selectIdx = startId;
-            long start, elapsedTimeMillis;
-            Map<Integer, String[]> variantIdGenotypeMap;
-            for (int i = startId - 1; i < numberOfRecords; i++) {
-                if (i > startId && i % batchSize == 0) {
-                    start = System.currentTimeMillis();
-                    variantIdGenotypeMap = selectGenotypeFromTemp(connection, selectIdx, selectIdx + batchSize - 1);
+                // count from table
+                numberOfRecords = InsertUtils.countFromTable(connection, "genotype_temp", null, stopId);
+                System.out.println("NumberOfRows = " + (numberOfRecords - startId + 1) + " to be parsed.");
+                System.out.println("Batch size is " + batchSize);
+                int selectIdx = startId;
+                long start, elapsedTimeMillis;
+                Map<Integer, String[]> variantIdGenotypeMap;
+                for (int i = startId - 1; i < numberOfRecords; i++) {
+                    if (i > startId && i % batchSize == 0) {
+                        start = System.currentTimeMillis();
+                        variantIdGenotypeMap = selectGenotypeFromTemp(connection, selectIdx, selectIdx + batchSize - 1);
 
+                        insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainsMap, strainMaps.get(0), imputed, startId);
+                        variantIdGenotypeMap.clear();
+                        elapsedTimeMillis = System.currentTimeMillis() - start;
+                        System.out.println("Progress: " + i + " of " + numberOfRecords + ", left: " + (numberOfRecords - i) + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1) + ", " + new Date());
+                        selectIdx = selectIdx + batchSize;
+                    }
+                }
+                // last batch
+                start = System.currentTimeMillis();
+                variantIdGenotypeMap = selectGenotypeFromTemp(connection, selectIdx, numberOfRecords);
+                if (!variantIdGenotypeMap.isEmpty()) {
                     insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainsMap, strainMaps.get(0), imputed, startId);
                     variantIdGenotypeMap.clear();
                     elapsedTimeMillis = System.currentTimeMillis() - start;
-                    System.out.println("Progress: " + i + " of " + numberOfRecords + ", left: " + (numberOfRecords - i) + ", duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + (selectIdx + batchSize - 1) + ", " + new Date());
-                    selectIdx = selectIdx + batchSize;
+                    System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords + ", " + new Date());
                 }
-            }
-            // last batch
-            start = System.currentTimeMillis();
-            variantIdGenotypeMap = selectGenotypeFromTemp(connection, selectIdx, numberOfRecords);
-            if (!variantIdGenotypeMap.isEmpty()) {
-                insertVariantStrainInBatch(connection, variantIdGenotypeMap, strainsMap, strainMaps.get(0), imputed, startId);
-                variantIdGenotypeMap.clear();
-                elapsedTimeMillis = System.currentTimeMillis() - start;
-                System.out.println("Progress: 100%, duration: " + (elapsedTimeMillis / (60 * 1000F)) + " min, items inserted: " + selectIdx + " to " + numberOfRecords + ", " + new Date());
-            }
 
-            System.out.println("Variant/Strain relationships and genotype data inserted in " + stopWatch);
+                System.out.println("Variant/Strain relationships and genotype data inserted in " + stopWatch);
+            }
         } catch (Exception exc) {
-            System.err.println(exc.getMessage());
+            System.err.println(exc);
         }
     }
 

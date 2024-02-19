@@ -48,7 +48,7 @@ public class VariantTranscriptInsertion {
             // last batch
             start = System.currentTimeMillis();
             variantIdTranscriptIdsMap = selectVariantTranscriptsFromTemp(connection, selectIdx, numberOfRecords);
-            if (variantIdTranscriptIdsMap.size() > 0) {
+            if (!variantIdTranscriptIdsMap.isEmpty()) {
                 insertVariantTranscriptSourceInBatch(connection, variantIdTranscriptIdsMap, sourceId);
                 variantIdTranscriptIdsMap.clear();
                 elapsedTimeMillis = System.currentTimeMillis() - start;
@@ -57,7 +57,7 @@ public class VariantTranscriptInsertion {
             // time
             System.out.println("Variant/Transcripts relationships inserted in " + stopWatch);
         } catch (SQLException exc) {
-            exc.printStackTrace();
+            System.err.println(exc);
         }
     }
 

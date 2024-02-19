@@ -25,10 +25,10 @@ public class VcfParser {
      *                   If multiple, and only the first file has a header, you need to add a header file, so that the annotations
      *                   can be found and used for the insertion.
      * @param checkForCanon if true we check for canonical
-     * @param assembly reference assembly
+     * @param isLifted true if data inserted is lifted from already existing data in the DB
      * @return a map of string/variants
      */
-    public static Map<String, Variant> parseVcf(File vcfFile, File headerFile, boolean checkForCanon, Assembly assembly) throws Exception {
+    public static Map<String, Variant> parseVcf(File vcfFile, File headerFile, boolean checkForCanon, boolean isLifted) throws Exception {
         Map<String, Variant> variations;
 
         if (vcfFile.getName().endsWith(".vcf")) {
@@ -40,7 +40,7 @@ public class VcfParser {
                 BufferedReader br = new BufferedReader(instrm)
             ) {
                 InfoParser infoParser = new ConsequenceParser(headerFile);
-                variations = parse(vcfFile.getName(), br, infoParser, checkForCanon, assembly);
+                variations = parse(vcfFile.getName(), br, infoParser, checkForCanon, isLifted);
             }
         } else if (vcfFile.getName().endsWith("gz")) {
             // gzipped read line by line
@@ -50,7 +50,7 @@ public class VcfParser {
                 BufferedReader br = new BufferedReader(decoder)
             ) {
                 InfoParser vepParser = new ConsequenceParser(headerFile);
-                variations = parse(vcfFile.getName(), br, vepParser, checkForCanon, assembly);
+                variations = parse(vcfFile.getName(), br, vepParser, checkForCanon, isLifted);
             }
         } else {
             // not supported
@@ -60,7 +60,7 @@ public class VcfParser {
         return variations;
     }
 
-    private static Map<String, Variant> parse(String filename, BufferedReader br, InfoParser infoParser, boolean checkForCanon, Assembly assembly) throws Exception {
+    private static Map<String, Variant> parse(String filename, BufferedReader br, InfoParser infoParser, boolean checkForCanon, boolean isLifted) throws Exception {
         Map<String, Variant> variations = new LinkedHashMap<>();
 
         String next, strLine = br.readLine();
@@ -72,7 +72,7 @@ public class VcfParser {
                 String[] columns = strLine.split("\t");
 
                 // jannovar transcript annotation and VEP annotation
-                Map<String, String> jannotationAndCSQ = InfoParser.getANNandCSQ(columns[7].split(";"), assembly == Assembly.MM39 && checkForCanon);
+                Map<String, String> jannotationAndCSQ = InfoParser.getANNandCSQ(columns[7].split(";"), isLifted);
                 // VEP hgvs annotation
                 List<String> rsIdAndHgvs = ((ConsequenceParser)infoParser).getRsIDAndHGVS(jannotationAndCSQ.get("CSQ"));
                 List<Map<String, String>> csqAnnotations = infoParser.parse(jannotationAndCSQ.get("CSQ"));
@@ -94,7 +94,7 @@ public class VcfParser {
                             columns[4], columns[5], columns[6], "", rsIdAndHgvs.get(1), csqAnnotations.get(0).get("Protein_position"), csqAnnotations.get(0).get("Amino_acids"), jannotationAndCSQ.get("ANN"), null);
                 }
                 // if checkCanon && mm39, we set the originalAllele and position
-                if (checkForCanon && assembly == Assembly.MM39) {
+                if (isLifted) {
                     var.setOriginalRefText(jannotationAndCSQ.get("OriginalAlleles"), jannotationAndCSQ.get("OriginalStart"));
                 }
                 if (variations.containsKey(var.getVariantRefTxt()))

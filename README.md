@@ -30,6 +30,8 @@ The "-batch_size" is optional; the default value is 1000. "-check_canon" is also
 
 The "-reference" is optional (set to "mm10" by default) and can be set to either "mm10" or "mm39".
 
+The "-lifted" parameter, if present, indicates that the data being inserted has been lifted from data already existing in the DB, and 
+
 To insert multiple files, a folder where the files are located can be passed as a parameter:
 ```
 java -jar mvar-utility-all.jar INSERT -data_path /path/to/data_folder -header_path /path/to/header_file.txt -batch_size 5000 -reference mm39 -check_canon
@@ -74,6 +76,7 @@ where -batch_size is optional (1000000 by default), -start_id is optional (1 by 
 
 #### 2.3 Update MVAR id for mm10 lifted to mm39 variants also present in the new mm39 release (link/canonicalize with mm10 MVAR id)
 
+If the data has been inserted with the "-lifted" parameter, the CANON process is used to find the canonicals between the lifted and original variants. 
 ```
 java -jar mvar-utility-all.jar CANON  -batch_size 1000 -start_id 1
 ```

@@ -26,7 +26,7 @@ public class VariantInsertion {
     private static int batchSize = 1000;
     private InfoParser infoParser;
     private Assembly assembly;
-    private boolean checkForCanon;
+    private boolean isLifted;
 
     /**
      * Loads a VCF file in the database
@@ -38,21 +38,22 @@ public class VariantInsertion {
      *                      Ultimately, the batch number depends on the File size and the JVM max and min memory
      * @param checkForCanon if true we check for canonical
      * @param assembly      Can be one of the assembly enum in Assembly
+     * @param isLifted      true if data to insert has been lifted from existing data in the DB
      */
-    public void loadVCF(File vcfFile, File headerFile, int batchNumber, boolean checkForCanon, Assembly assembly) {
+    public void loadVCF(File vcfFile, File headerFile, int batchNumber, boolean checkForCanon, Assembly assembly, boolean isLifted) {
         batchSize = batchNumber;
         this.assembly = assembly;
-        this.checkForCanon = checkForCanon;
+        this.isLifted = isLifted;
         System.out.println("Parsing VCF file and inserting parsed variants into DB, " + new Date());
         System.out.println("Batch size = " + batchSize);
         try {
             infoParser = new AnnotationParser(headerFile);
             // parse variants into a Map
-            Map<String, Variant> variations = VcfParser.parseVcf(vcfFile, headerFile, checkForCanon, assembly);
+            Map<String, Variant> variations = VcfParser.parseVcf(vcfFile, headerFile, checkForCanon, isLifted);
             // Persist data
             persistData(variations);
         } catch (Exception e) {
-            System.err.println("An exception was caught: " + e.getMessage());
+            System.err.println("An exception was caught: " + e.getMessage() + " : " + e);
         }
     }
 
@@ -152,7 +153,8 @@ public class VariantInsertion {
         // Retrieve the last id of canons
         int canonIdx, variantInsertedNumber;
         String selectLastIdCanonical = "select id from variant_canon_identifier order by id desc limit 1 offset 0;";
-        try (PreparedStatement selectLastCanonicalIdStmt = connection.prepareStatement(selectLastIdCanonical)) {
+        PreparedStatement selectLastCanonicalIdStmt = connection.prepareStatement(selectLastIdCanonical);
+        try {
             ResultSet idResult = selectLastCanonicalIdStmt.executeQuery();
             if (!idResult.next()) {
                 canonIdx = 1;
@@ -160,6 +162,12 @@ public class VariantInsertion {
                 canonIdx = idResult.getInt("id") + 1;
             }
             variantInsertedNumber = canonIdx;
+        } catch (SQLException e) {
+            throw e;
+        } finally {
+            if (selectLastCanonicalIdStmt != null) {
+                selectLastCanonicalIdStmt.close();
+            }
         }
 
         innoDBSetOptions(connection, false);
@@ -197,7 +205,7 @@ public class VariantInsertion {
         }
 
         // update canonical id automatically if not (mm39 && check-canon)
-        if (!checkForCanon || assembly != Assembly.MM39) {
+        if (!isLifted) {
             String UPDATE_CANONICAL_ID = "update variant_canon_identifier set caid = concat('MCA_', id) where caid is NULL";
             try (PreparedStatement updateCanonicalStmt = connection.prepareStatement(UPDATE_CANONICAL_ID)) {
                 updateCanonicalStmt.execute();
@@ -242,7 +250,7 @@ public class VariantInsertion {
             insertVariants = connection.prepareStatement("insert into variant (accession, chr, position, alt, ref, type, functional_class_code, assembly, parent_ref_ind, variant_ref_txt, variant_hgvs_notation, dna_hgvs_notation, protein_hgvs_notation, impact, canon_var_identifier_id, gene_id, protein_position, amino_acid_change) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             insertVariantTranscriptsTemp = connection.prepareStatement("insert into variant_transcript_temp (variant_ref_txt, transcript_ids, transcript_feature_ids) VALUES (?,?,?)");
             insertGenotypeTemp = connection.prepareStatement("insert into genotype_temp (variant_id, format, genotype_data) VALUES (?,?,?)");
-            if (this.assembly == Assembly.MM39 && this.checkForCanon) {
+            if (isLifted) {
                 insertReftxtmm10mm39Temp = connection.prepareStatement("insert into mm10mm39temp (ref_txt_mm39, ref_txt_mm10) VALUES (?,?)");
             }
 
@@ -274,7 +282,7 @@ public class VariantInsertion {
                     insertVariantTranscriptsTemp.addBatch();
 
                     // insert into temp mm10/mm39 table to later properly canonicalize the new mm39 variants to their original mm10 variant if they already exist
-                    if (this.assembly == Assembly.MM39 && this.checkForCanon) {
+                    if (isLifted) {
                         assert insertReftxtmm10mm39Temp != null;
                         insertReftxtmm10mm39Temp.setString(1, variant.getVariantRefTxt());
                         insertReftxtmm10mm39Temp.setString(2, variant.getOriginalRefTxt());
@@ -348,7 +356,7 @@ public class VariantInsertion {
             insertVariantTranscriptsTemp.executeBatch();
             insertVariants.executeBatch();
             insertGenotypeTemp.executeBatch();
-            if (this.assembly == Assembly.MM39 && this.checkForCanon) {
+            if (isLifted) {
                 assert insertReftxtmm10mm39Temp != null;
                 insertReftxtmm10mm39Temp.executeBatch();
             }
@@ -363,7 +371,7 @@ public class VariantInsertion {
                 insertVariantTranscriptsTemp.close();
             if (insertGenotypeTemp != null)
                 insertGenotypeTemp.close();
-            if (insertReftxtmm10mm39Temp != null && this.assembly == Assembly.MM39 && this.checkForCanon)
+            if (insertReftxtmm10mm39Temp != null && isLifted)
                 insertReftxtmm10mm39Temp.close();
         }
     }
@@ -398,8 +406,6 @@ public class VariantInsertion {
             result = selectStmt.executeQuery(selectGeneBySynId);
             connection.setAutoCommit(false);
             while (result.next()) return result.getInt("gene_synonyms_id");
-        } catch (SQLException exc) {
-            throw exc;
         } finally {
             if (result != null)
                 result.close();

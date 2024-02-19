@@ -20,9 +20,8 @@ public class MGIChecker {
      * Loads a VCF file in the database
      *
      * @param vcfFile     VCF file
-     * @param assembly    reference assembly (can be mm10 or mm39)
      */
-    public void loadVCF(File vcfFile, Assembly assembly) {
+    public void loadVCF(File vcfFile) {
 
         // get Properties
         Config config = new Config();
@@ -31,7 +30,7 @@ public class MGIChecker {
             stopWatch.start();
 
             // parse variants into a Map
-            Map<String, Variant> variations = VcfParser.parseVcf(vcfFile, vcfFile, false, assembly);
+            Map<String, Variant> variations = VcfParser.parseVcf(vcfFile, vcfFile, false, false);
             // query database for duplicates
             Map<Integer, Variant> result = queryDatabase(connection, variations);
             writeToFile(result);
