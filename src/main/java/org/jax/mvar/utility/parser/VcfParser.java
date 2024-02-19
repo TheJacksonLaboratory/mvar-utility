@@ -1,7 +1,6 @@
 package org.jax.mvar.utility.parser;
 
 import org.jax.mvar.utility.Config;
-import org.jax.mvar.utility.model.Assembly;
 import org.jax.mvar.utility.model.Variant;
 
 import java.io.*;
@@ -20,6 +19,7 @@ public class VcfParser {
     /**
      * Parse a VCF file. If checkForCanon is true, a batch search for canonicals in the MVAR DB will be done
      * and the result HashMap of variations will only contain variants that are not found in the DB.
+     * @param connection jdbc connection
      * @param vcfFile file
      * @param headerFile If one input file, headerFile can be the same as the vcfFile.
      *                   If multiple, and only the first file has a header, you need to add a header file, so that the annotations
@@ -28,7 +28,7 @@ public class VcfParser {
      * @param isLifted true if data inserted is lifted from already existing data in the DB
      * @return a map of string/variants
      */
-    public static Map<String, Variant> parseVcf(File vcfFile, File headerFile, boolean checkForCanon, boolean isLifted) throws Exception {
+    public static Map<String, Variant> parseVcf(Connection connection, File vcfFile, File headerFile, boolean checkForCanon, boolean isLifted) throws Exception {
         Map<String, Variant> variations;
 
         if (vcfFile.getName().endsWith(".vcf")) {
@@ -40,7 +40,7 @@ public class VcfParser {
                 BufferedReader br = new BufferedReader(instrm)
             ) {
                 InfoParser infoParser = new ConsequenceParser(headerFile);
-                variations = parse(vcfFile.getName(), br, infoParser, checkForCanon, isLifted);
+                variations = parse(connection, vcfFile.getName(), br, infoParser, checkForCanon, isLifted);
             }
         } else if (vcfFile.getName().endsWith("gz")) {
             // gzipped read line by line
@@ -50,7 +50,7 @@ public class VcfParser {
                 BufferedReader br = new BufferedReader(decoder)
             ) {
                 InfoParser vepParser = new ConsequenceParser(headerFile);
-                variations = parse(vcfFile.getName(), br, vepParser, checkForCanon, isLifted);
+                variations = parse(connection, vcfFile.getName(), br, vepParser, checkForCanon, isLifted);
             }
         } else {
             // not supported
@@ -60,7 +60,7 @@ public class VcfParser {
         return variations;
     }
 
-    private static Map<String, Variant> parse(String filename, BufferedReader br, InfoParser infoParser, boolean checkForCanon, boolean isLifted) throws Exception {
+    private static Map<String, Variant> parse(Connection connection , String filename, BufferedReader br, InfoParser infoParser, boolean checkForCanon, boolean isLifted) throws Exception {
         Map<String, Variant> variations = new LinkedHashMap<>();
 
         String next, strLine = br.readLine();
@@ -122,7 +122,7 @@ public class VcfParser {
             }
             sql.append(")");
 
-            try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
+            try {
                 int index = 0;
                 selectStmt = connection.prepareStatement(sql.toString());
 

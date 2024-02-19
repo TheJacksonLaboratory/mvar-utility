@@ -19,14 +19,48 @@ import java.util.Date;
 
 public class VariantInsertion {
 
+    private Connection connection;
     private Map<String, String[]> newTranscriptsMap;
 
     private final static List<String> VARIANT_TYPES = Arrays.asList("SNP", "DEL", "INS");
 
-    private static int batchSize = 1000;
+    private int batchSize;
     private InfoParser infoParser;
-    private Assembly assembly;
-    private boolean isLifted;
+    private final Assembly assembly;
+    private final boolean isLifted;
+
+    /**
+     *
+     * @param batchSize   a batch number of 1000 is advised if enough memory (7G) is allocated to the JVM
+     *                      Ultimately, the batch number depends on the File size and the JVM max and min memory
+     * @param assembly      Can be one of the assembly enum in Assembly
+     * @param isLifted      true if data to insert has been lifted from existing data in the DB
+     */
+    public VariantInsertion(int batchSize, Assembly assembly, boolean isLifted) {
+        this.batchSize = batchSize;
+        this.assembly = assembly;
+        this.isLifted = isLifted;
+        // create connection
+        // get Properties
+        Config config = new Config();
+        try {
+            System.out.println("Opening JDBC connection...");
+            connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void closeJDBCConnection() {
+        if (connection != null) {
+            try {
+                System.out.println("closing JDBC connection...");
+                connection.close();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
 
     /**
      * Loads a VCF file in the database
@@ -34,26 +68,27 @@ public class VariantInsertion {
      * @param vcfFile       VCF file, can be gzipped or vcf format
      * @param headerFile    If only one file is used to input data and that file has a header, then this parameter can be
      *                      the vcfFile. If not (multiple file, and they don't have a header, then a separate header file is needed.
-     * @param batchNumber   a batch number of 1000 is advised if enough memory (7G) is allocated to the JVM
-     *                      Ultimately, the batch number depends on the File size and the JVM max and min memory
+
      * @param checkForCanon if true we check for canonical
-     * @param assembly      Can be one of the assembly enum in Assembly
-     * @param isLifted      true if data to insert has been lifted from existing data in the DB
+
      */
-    public void loadVCF(File vcfFile, File headerFile, int batchNumber, boolean checkForCanon, Assembly assembly, boolean isLifted) {
-        batchSize = batchNumber;
-        this.assembly = assembly;
-        this.isLifted = isLifted;
+    public void loadVCF(File vcfFile, File headerFile,boolean checkForCanon) throws SQLException {
         System.out.println("Parsing VCF file and inserting parsed variants into DB, " + new Date());
         System.out.println("Batch size = " + batchSize);
+        // set connection
+
         try {
             infoParser = new AnnotationParser(headerFile);
             // parse variants into a Map
-            Map<String, Variant> variations = VcfParser.parseVcf(vcfFile, headerFile, checkForCanon, isLifted);
+            Map<String, Variant> variations = VcfParser.parseVcf(connection, vcfFile, headerFile, checkForCanon, isLifted);
             // Persist data
             persistData(variations);
         } catch (Exception e) {
             System.err.println("An exception was caught: " + e.getMessage() + " : " + e);
+        } finally {
+            if (connection != null) {
+                connection.close();
+            }
         }
     }
 
@@ -71,19 +106,15 @@ public class VariantInsertion {
      * @param variations    map of variations
      */
     private void persistData(Map<String, Variant> variations) throws Exception {
-        // get Properties
-        Config config = new Config();
 
-        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
-            final StopWatch stopWatch = new StopWatch();
-            stopWatch.start();
-            System.out.println(new Date() + ", Starting variant insertion");
+        final StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+        System.out.println(new Date() + ", Starting variant insertion");
 
-            // insert variants parsed
-            int newVariantsInserted = insertVariantsBatch(connection, variations);
-            System.out.println(new Date() + "," + newVariantsInserted + " new variants inserted in " + stopWatch);
-            stopWatch.reset();
-        }
+        // insert variants parsed
+        int newVariantsInserted = insertVariantsBatch(variations);
+        System.out.println(new Date() + "," + newVariantsInserted + " new variants inserted in " + stopWatch);
+        stopWatch.reset();
     }
 
     /**
@@ -112,7 +143,7 @@ public class VariantInsertion {
         }
     }
 
-    private MutableObjectIntMap<?> selectAllFromColumnInList(Connection connection, String tableName, String columnName, Set<String> valueSet) throws SQLException {
+    private MutableObjectIntMap<?> selectAllFromColumnInList(String tableName, String columnName, Set<String> valueSet) throws SQLException {
         String listOfValueAsStr = "";
         for (String value : valueSet) {
             listOfValueAsStr = listOfValueAsStr.isEmpty() ? "'" + value + "'" : listOfValueAsStr.concat(",'").concat(value).concat("'");
@@ -139,11 +170,10 @@ public class VariantInsertion {
     /**
      * Insert Variants, variants relationship (transcripts, strain) in batch
      *
-     * @param connection jdbc connection
      * @param variations LinkedHashMap of variations
      * @return number of new variants inserted
      */
-    private int insertVariantsBatch(Connection connection, Map<String, Variant> variations) throws Exception {
+    private int insertVariantsBatch(Map<String, Variant> variations) throws Exception {
         List<Variant> batchOfVars = new FastList<>();
         Set<String> geneSet = new HashSet<>();
         Set<String> transcriptSet = new HashSet<>();
@@ -153,8 +183,7 @@ public class VariantInsertion {
         // Retrieve the last id of canons
         int canonIdx, variantInsertedNumber;
         String selectLastIdCanonical = "select id from variant_canon_identifier order by id desc limit 1 offset 0;";
-        PreparedStatement selectLastCanonicalIdStmt = connection.prepareStatement(selectLastIdCanonical);
-        try {
+        try (PreparedStatement selectLastCanonicalIdStmt = connection.prepareStatement(selectLastIdCanonical)) {
             ResultSet idResult = selectLastCanonicalIdStmt.executeQuery();
             if (!idResult.next()) {
                 canonIdx = 1;
@@ -164,10 +193,6 @@ public class VariantInsertion {
             variantInsertedNumber = canonIdx;
         } catch (SQLException e) {
             throw e;
-        } finally {
-            if (selectLastCanonicalIdStmt != null) {
-                selectLastCanonicalIdStmt.close();
-            }
         }
 
         innoDBSetOptions(connection, false);
@@ -187,7 +212,7 @@ public class VariantInsertion {
             }
 
             if (idx > 1 && idx % batchSize == 0) {
-                canonIdx = batchInsertVariantsJDBC2(connection, batchOfVars, geneSet, transcriptSet, canonIdx);
+                canonIdx = batchInsertVariantsJDBC2(batchOfVars, geneSet, transcriptSet, canonIdx);
                 //clear batch lists
                 batchOfVars.clear();
                 geneSet.clear();
@@ -198,7 +223,7 @@ public class VariantInsertion {
 
         //last batch
         if (!batchOfVars.isEmpty()) {
-            canonIdx = batchInsertVariantsJDBC2(connection, batchOfVars, geneSet, transcriptSet, canonIdx);
+            canonIdx = batchInsertVariantsJDBC2(batchOfVars, geneSet, transcriptSet, canonIdx);
             batchOfVars.clear();
             geneSet.clear();
             transcriptSet.clear();
@@ -222,21 +247,20 @@ public class VariantInsertion {
     /**
      * Insert variants, and relationships using JDBC
      *
-     * @param connection         jdbc connection
      * @param batchOfVars        batch of variants
      * @param geneSet            all genes for the corresponding variants
      * @param transcriptSet      all transcripts for the corresponding variants
      */
-    private int batchInsertVariantsJDBC2(Connection connection, List<Variant> batchOfVars, Set<String> geneSet, Set<String> transcriptSet, int canonIdx) throws Exception {
+    private int batchInsertVariantsJDBC2(List<Variant> batchOfVars, Set<String> geneSet, Set<String> transcriptSet, int canonIdx) throws Exception {
         // set autocommit on for the selects stmt
         connection.setAutoCommit(true);
 
         // records of all unique gene symbols
-        MutableObjectIntMap<?> geneSymbolRecs = selectAllFromColumnInList(connection, "gene", "symbol", geneSet);
+        MutableObjectIntMap<?> geneSymbolRecs = selectAllFromColumnInList("gene", "symbol", geneSet);
 
-        MutableObjectIntMap<?> geneSynonymRecs = selectAllFromColumnInList(connection, "synonym", "name", geneSet);
+        MutableObjectIntMap<?> geneSynonymRecs = selectAllFromColumnInList("synonym", "name", geneSet);
 
-        MutableObjectIntMap<?> transcriptRecs = selectAllFromColumnInList(connection, "transcript", "primary_identifier", transcriptSet);
+        MutableObjectIntMap<?> transcriptRecs = selectAllFromColumnInList("transcript", "primary_identifier", transcriptSet);
 
         // set autocommit off again
         connection.setAutoCommit(false);
@@ -296,7 +320,7 @@ public class VariantInsertion {
                     // we get the first gene info in the jannovar info string
                     if (geneId == -1) {
                         // We check in the list of synonyms to get the corresponding gene
-                        geneId = getGeneBySynonyms(connection, geneSynonymRecs, geneName);
+                        geneId = getGeneBySynonyms(geneSynonymRecs, geneName);
                     }
 
                     insertVariants.setString(1, variant.getId());
@@ -389,28 +413,18 @@ public class VariantInsertion {
     }
 
     /**
-     * @param connection        JDBC connection
      * @param geneSynonymRecs   synonym of genes records
      * @param geneName          gene  name
      * @return Returns -1 if no result was found
      * @throws SQLException Exception thrown
      */
-    private int getGeneBySynonyms(Connection connection, MutableObjectIntMap geneSynonymRecs, final String geneName) throws SQLException {
+    private int getGeneBySynonyms(MutableObjectIntMap geneSynonymRecs, final String geneName) throws SQLException {
         connection.setAutoCommit(true);
         int synId = geneSynonymRecs.get(geneName);
         String selectGeneBySynId = "SELECT * FROM gene_synonym WHERE synonym_id=" + synId;
-        Statement selectStmt = null;
-        ResultSet result = null;
-        try {
-            selectStmt = connection.createStatement();
-            result = selectStmt.executeQuery(selectGeneBySynId);
+        try (Statement selectStmt = connection.createStatement(); ResultSet result = selectStmt.executeQuery(selectGeneBySynId)) {
             connection.setAutoCommit(false);
             while (result.next()) return result.getInt("gene_synonyms_id");
-        } finally {
-            if (result != null)
-                result.close();
-            if (selectStmt != null)
-                selectStmt.close();
         }
         return -1;
     }
@@ -458,7 +472,7 @@ public class VariantInsertion {
         stopWatch.start();
         System.out.println(new Date() + ", Starting searching and updating Canonical IDs for mm39");
 
-        try (Connection connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword())) {
+        try {
             // count number of records
             numberOfRecords = InsertUtils.countFromTable(connection, "variant_canon_identifier", null, stopId);
 
@@ -533,26 +547,26 @@ public class VariantInsertion {
     }
 
     private static void updateVariantRefTxtFormm39InBatch(Connection connection, Map<Integer, String> variantRefTxtMap) throws SQLException {
-        PreparedStatement updateCaidPstmt = connection.prepareStatement("UPDATE variant_canon_identifier SET caid=? WHERE variant_ref_txt=?");
         List<String> mm10RefTxts = new LinkedList<>(), caids = new LinkedList<>();
 
-        try {
+        try (PreparedStatement updateCaidPstmt = connection.prepareStatement("UPDATE variant_canon_identifier SET caid=? WHERE variant_ref_txt=?")) {
+
             // select all CAIDs
             String selectRefTxtmm10 = "select ref_txt_mm10 from mm10mm39temp mmt where mmt.ref_txt_mm39 in (";
-            String refTxtList = "";
+            StringBuilder refTxtList = new StringBuilder();
             // first loop to create "bulk select query"
             int idx = 0;
             for (Map.Entry<Integer, String> entry : variantRefTxtMap.entrySet()) {
                 if (idx < variantRefTxtMap.size() - 1) {
-                    refTxtList = refTxtList + "\"" + entry.getValue() + "\",";
+                    refTxtList.append("\"").append(entry.getValue()).append("\",");
                 } else {
                     // finish building the list
-                    refTxtList = refTxtList + "\"" + entry.getValue() + "\"";
+                    refTxtList.append("\"").append(entry.getValue()).append("\"");
                 }
                 idx++;
             }
             // this is required to ensure order
-            selectRefTxtmm10 = selectRefTxtmm10 + refTxtList + ") ORDER BY FIELD(mmt.ref_txt_mm39," + refTxtList + ");" ;
+            selectRefTxtmm10 = selectRefTxtmm10 + refTxtList + ") ORDER BY FIELD(mmt.ref_txt_mm39," + refTxtList + ");";
             // run select statement
             try (PreparedStatement selectRefTxtmm10Stmt = connection.prepareStatement(selectRefTxtmm10); ResultSet mm10RefTxtResult = selectRefTxtmm10Stmt.executeQuery()) {
                 while (mm10RefTxtResult.next()) {
@@ -562,13 +576,13 @@ public class VariantInsertion {
                 throw exc;
             }
             String selectCaids = "select caid from variant_canon_identifier vci where vci.variant_ref_txt in (";
-            String  mm10RefTxtList = "";
+            StringBuilder mm10RefTxtList = new StringBuilder();
             idx = 0;
-            for (String mm10RefTxt:mm10RefTxts) {
-                if (idx < mm10RefTxts.size() -1) {
-                    mm10RefTxtList = mm10RefTxtList + "\"" + mm10RefTxt + "\",";
+            for (String mm10RefTxt : mm10RefTxts) {
+                if (idx < mm10RefTxts.size() - 1) {
+                    mm10RefTxtList.append("\"").append(mm10RefTxt).append("\",");
                 } else {
-                    mm10RefTxtList = mm10RefTxtList + "\"" + mm10RefTxt + "\"";
+                    mm10RefTxtList.append("\"").append(mm10RefTxt).append("\"");
                 }
                 idx++;
             }
@@ -598,8 +612,6 @@ public class VariantInsertion {
         } catch (SQLException exc) {
             throw exc;
         } finally {
-            if (updateCaidPstmt != null)
-                updateCaidPstmt.close();
             mm10RefTxts.clear();
             caids.clear();
         }

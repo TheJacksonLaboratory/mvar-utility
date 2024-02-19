@@ -97,7 +97,6 @@ public class App {
     }
 
     public static void main(String[] args) {
-        VariantInsertion insertService = new VariantInsertion();
         Map<String, Object> arguments = cmdArgsParser(args);
         try {
             String type = (String) arguments.get("type");
@@ -108,48 +107,69 @@ public class App {
             String path = (String) arguments.get("data_path");
             String headerFilePath = (String) arguments.get("header_path");
             Assembly assembly = getAssembly((String) arguments.get("reference"));
-            if (type.equals("MGI")) {         // Check MGI vcf data against the MVAR database for duplicates
-                // check MGI variants in DB
-                MGIChecker checker = new MGIChecker();
-                checker.loadVCF(new File(path));
-            } else if (type.equals("CONVERT")) {   // Convert CSV to VCF format
-                try {
-                    // Read variant csv file
-                    Map<String, Variant> variants = VCFConverter.parseCSV(path, ",");
+            switch (type) {
+                case "MGI":          // Check MGI vcf data against the MVAR database for duplicates
+                    // check MGI variants in DB
+                    MGIChecker checker = new MGIChecker();
+                    checker.loadVCF(new File(path));
+                    break;
+                case "CONVERT":    // Convert CSV to VCF format
+                    try {
+                        // Read variant csv file
+                        Map<String, Variant> variants = VCFConverter.parseCSV(path, ",");
 
-                    //write loaded variants into vcf file
-                    VCFConverter.writeVCF(variants, path + ".vcf");
-                } catch (Exception e) {
-                    System.out.println(e.getMessage());
-                }
-            } else if (type.equals("INSERT")){
-                boolean checkForCanon = (boolean) arguments.get("check_canon");
-                boolean isLifted = (boolean) arguments.get("lifted");
-                File headerFile = new File(headerFilePath);
-                File f = new File(path);
-                if (f.isDirectory()) {
-                    File[] files = new File(f.getPath()).listFiles();
-                    assert files != null;
-                    Arrays.sort(files);
-                    for (File file : files) {
-                        if (file.isFile() && (file.getName().endsWith(".gz") || (file.getName().endsWith(".vcf"))))
-                            insertService.loadVCF(file, headerFile, batchSize, checkForCanon, assembly, isLifted);
+                        //write loaded variants into vcf file
+                        VCFConverter.writeVCF(variants, path + ".vcf");
+                    } catch (Exception e) {
+                        System.out.println(e.getMessage());
+                    }
+                    break;
+                case "INSERT": {
+                    boolean checkForCanon = (boolean) arguments.get("check_canon");
+                    boolean isLifted = (boolean) arguments.get("lifted");
+                    VariantInsertion insertService = new VariantInsertion(batchSize, assembly, isLifted);
+                    try {
+                        File headerFile = new File(headerFilePath);
+                        File f = new File(path);
+                        if (f.isDirectory()) {
+                            File[] files = new File(f.getPath()).listFiles();
+                            assert files != null;
+                            Arrays.sort(files);
+                            for (File file : files) {
+                                if (file.isFile() && (file.getName().endsWith(".gz") || (file.getName().endsWith(".vcf"))))
+                                    insertService.loadVCF(file, headerFile, checkForCanon);
+                            }
+
+                        } else if (f.isFile() && (f.getName().endsWith(".gz") || (f.getName().endsWith(".vcf")))) {
+                            insertService.loadVCF(f, f, checkForCanon);
+                        } else {
+                            throw new Exception("Could not find file or directory : " + f.getPath());
+                        }
+                    } finally {
+                        insertService.closeJDBCConnection();
                     }
 
-                } else if (f.isFile() && (f.getName().endsWith(".gz") || (f.getName().endsWith(".vcf")))) {
-                    insertService.loadVCF(f, f, batchSize, checkForCanon, assembly, isLifted);
-                } else {
-                    throw new Exception("Could not find file or directory : " + f.getPath());
+                    break;
                 }
-            } else if (type.equals("REL")){
-                String sourceName = (String) arguments.get("source_name");
-                VariantTranscriptInsertion.insertVariantTranscriptSourceRel(batchSize, startId, sourceName);
-            } else if (type.equals("GENO")){
-                String strainFilePath = (String) arguments.get("strain_path");
-                byte imputed = (byte) arguments.get("imputed");
-                VariantStrainInsertion.insertVariantStrainRelationships(batchSize, startId, stopId, strainFilePath, imputed);
-            } else if (type.equals("CANON")) {
-                insertService.searchAndInsertCanonicalFromMM39(startId, batchSize);
+                case "REL":
+                    String sourceName = (String) arguments.get("source_name");
+                    VariantTranscriptInsertion.insertVariantTranscriptSourceRel(batchSize, startId, sourceName);
+                    break;
+                case "GENO":
+                    String strainFilePath = (String) arguments.get("strain_path");
+                    byte imputed = (byte) arguments.get("imputed");
+                    VariantStrainInsertion.insertVariantStrainRelationships(batchSize, startId, stopId, strainFilePath, imputed);
+                    break;
+                case "CANON": {
+                    boolean isLifted = (boolean) arguments.get("lifted");
+                    VariantInsertion insertService = new VariantInsertion(batchSize, assembly, isLifted);
+                    try {
+                        insertService.searchAndInsertCanonicalFromMM39(startId, batchSize);
+                    } finally {
+                        insertService.closeJDBCConnection();
+                    }
+                    break;
+                }
             }
         } catch (Exception exc) {
             System.out.println(exc.getMessage());
