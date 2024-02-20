@@ -141,7 +141,7 @@ public class App {
                             }
 
                         } else if (f.isFile() && (f.getName().endsWith(".gz") || (f.getName().endsWith(".vcf")))) {
-                            insertService.loadVCF(f, f, checkForCanon);
+                            insertService.loadVCF(f, headerFile, checkForCanon);
                         } else {
                             throw new Exception("Could not find file or directory : " + f.getPath());
                         }

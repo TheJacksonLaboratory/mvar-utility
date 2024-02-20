@@ -19,7 +19,7 @@ import java.util.Date;
 
 public class VariantInsertion {
 
-    private Connection connection;
+    private final Connection connection;
     private Map<String, String[]> newTranscriptsMap;
 
     private final static List<String> VARIANT_TYPES = Arrays.asList("SNP", "DEL", "INS");
