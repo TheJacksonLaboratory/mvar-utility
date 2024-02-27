@@ -15,7 +15,7 @@ public class VariantTranscriptInsertion {
      *
      * @param batchSize
      * @param startId in case a process needs to be re-run from a certain variant_id (instead of starting from the beginning all over again
-     * @param sourceName
+     * @param sourceName can be Sanger_V7, Sanger_V8,
      * @throws Exception
      */
     public static void insertVariantTranscriptSourceRel(int batchSize, int startId, String sourceName) throws Exception {
@@ -33,6 +33,7 @@ public class VariantTranscriptInsertion {
             int selectIdx = startId;
             long start, elapsedTimeMillis;
             Map<Long, Set<Long>> variantIdTranscriptIdsMap;
+            numberOfRecords = numberOfRecords + startId;
             for (int i = startId - 1; i < numberOfRecords; i++) {
                 if (i > startId && i % batchSize == 0) {
                     start = System.currentTimeMillis();

@@ -63,9 +63,9 @@ The insertion command does not add the corresponding relationships in order to m
 The variant/transcript relationships are added with the "REL" parameter:
     
 ```
-java -jar mvar-utility-all.jar REL -batch_size 1000 -start_id 1 -source_name Sanger_v7
+java -jar mvar-utility-all.jar REL -batch_size 1000 -start_id 1 -source_name Sanger_V7
 ```
-where -batch_size is optional (100000 by default), -start_id is optional (1 by default) and -source_name is by default "Sanger_V7". Available sources are "Sanger_V4, Sanger_V5, Sanger_V6, Sanger_V7 (mm10), Sanger_v8 (mm39), MGI_mm10, MGI_mm39 and SNPGrid_V1" for now.
+where -batch_size is optional (100000 by default), -start_id is optional (1 by default) and -source_name is by default "Sanger_V7". Available sources are "Sanger_V4, Sanger_V5, Sanger_V6, Sanger_V7 (mm10), Sanger_V8 (mm39), MGI_mm10, MGI_mm39 and SNPGrid_V1" for now.
 
 Before inserting the strain/variant relationship, make sure that the list of strain names in the strain file that you have 
 (list of strains/individuals pulled from dataset) does exist in the Strain table. The variant/strain relationships are added with the "GENO" parameter (we know whether there is a variant for a certain strain by parsing the genotype information in the VCF data). A required parameter is "strain_path" which points to a text file with the list of strains in the DB (separated by carriage returns):

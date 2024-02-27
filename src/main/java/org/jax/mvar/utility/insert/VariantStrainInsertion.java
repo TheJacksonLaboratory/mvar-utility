@@ -46,6 +46,8 @@ public class VariantStrainInsertion {
                 int selectIdx = startId;
                 long start, elapsedTimeMillis;
                 Map<Integer, String[]> variantIdGenotypeMap;
+                numberOfRecords = numberOfRecords + startId;
+
                 for (int i = startId - 1; i < numberOfRecords; i++) {
                     if (i > startId && i % batchSize == 0) {
                         start = System.currentTimeMillis();

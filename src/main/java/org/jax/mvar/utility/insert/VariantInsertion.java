@@ -591,8 +591,6 @@ public class VariantInsertion {
                 while (caidResult.next()) {
                     caids.add(caidResult.getString("caid"));
                 }
-            } catch (SQLException exc) {
-                throw exc;
             }
             // TODO replace the above two selects by an inner select? the problem is we need to ensure the order of the
             // results... that is why the sequencial two select is required here with a ORDER BY FIELD
