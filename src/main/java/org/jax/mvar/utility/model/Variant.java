@@ -19,6 +19,7 @@ public class Variant {
     String vepConsequence;
     String type;
     String variantRefTxt;
+    String originalRefText;
     String proteinPosition;
     String aminoAcidChange;
     Map strains;
@@ -107,6 +108,27 @@ public class Variant {
 
     public String getVariantRefTxt() {
         return variantRefTxt;
+    }
+    public String getOriginalRefTxt() {
+        return originalRefText;
+    }
+
+    /**
+     * Sets the original VariantRefTxt given the original alleles(an array with two items, one for ref and one for alt)
+     * and original position
+     * @param originalAlleles
+     * @param originalPosition
+     */
+    public void setOriginalRefText(String originalAlleles, String originalPosition) {
+        String ref = "", alt = "";
+        if (originalAlleles != null && !originalAlleles.equals("")) {
+            ref = originalAlleles.split(",")[0];
+            alt = originalAlleles.split(",")[1];
+        } else {
+            ref = this.ref;
+            alt = this.alt;
+        }
+        this.originalRefText = chr.concat("_").concat(originalPosition).concat("_").concat(ref).concat("_").concat(alt);
     }
 
     public String getType() {
